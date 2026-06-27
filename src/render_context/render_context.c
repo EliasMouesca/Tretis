@@ -3,17 +3,29 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../log/log.h"
 
 #define WINDOW_TITLE "TRETIS"
+#define TEXT_CACHE_SIZE 64
+
+typedef struct {
+    char text[64];
+    SDL_Texture* texture;
+    int w;
+    int h;
+} text_cache_entry_t;
 
 struct render_context_t {
     SDL_Window* window;
     SDL_Renderer* renderer;
     TTF_Font* font;
     tretis_config_t config;
+    text_cache_entry_t textCache[TEXT_CACHE_SIZE];
+    int textCacheNext;
 };
 
 static TTF_Font* openFont(tretis_config_t config) {
@@ -51,6 +63,8 @@ render_context_t* createRenderContext(tretis_config_t config) {
         critical("Out of memory");
 
     rc->config = config;
+    memset(rc->textCache, 0, sizeof(rc->textCache));
+    rc->textCacheNext = 0;
     rc->font = openFont(config);
 
     int width = config.cols * config.blockSize;
@@ -71,6 +85,10 @@ render_context_t* createRenderContext(tretis_config_t config) {
 
 void destroyRenderContext(render_context_t** rcp) {
     render_context_t* rc = *rcp;
+
+    for (int i = 0; i < TEXT_CACHE_SIZE; i++)
+        if (rc->textCache[i].texture != NULL)
+            SDL_DestroyTexture(rc->textCache[i].texture);
 
     TTF_CloseFont(rc->font);
     SDL_DestroyRenderer(rc->renderer);
@@ -168,27 +186,51 @@ void renderHudBox(render_context_t* rc, int x, int y, int w, int h) {
 }
 
 void renderText(render_context_t* rc, int x, int y, const char* text) {
-    SDL_Color color = {255, 255, 255, 255};
-    SDL_Surface* surface = TTF_RenderText_Blended(rc->font, text, 0, color);
-    if (surface == NULL)
-        return;
+    text_cache_entry_t* entry = NULL;
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(rc->renderer, surface);
-    if (texture == NULL) {
+    for (int i = 0; i < TEXT_CACHE_SIZE; i++) {
+        if (rc->textCache[i].texture != NULL && strcmp(rc->textCache[i].text, text) == 0) {
+            entry = &rc->textCache[i];
+            break;
+        }
+    }
+
+    if (entry == NULL) {
+        entry = &rc->textCache[rc->textCacheNext];
+        rc->textCacheNext = (rc->textCacheNext + 1) % TEXT_CACHE_SIZE;
+
+        if (entry->texture != NULL)
+            SDL_DestroyTexture(entry->texture);
+
+        entry->texture = NULL;
+        entry->w = 0;
+        entry->h = 0;
+        snprintf(entry->text, sizeof(entry->text), "%s", text);
+    }
+
+    if (entry->texture == NULL) {
+        SDL_Color color = {255, 255, 255, 255};
+        SDL_Surface* surface = TTF_RenderText_Blended(rc->font, entry->text, 0, color);
+        if (surface == NULL)
+            return;
+
+        entry->texture = SDL_CreateTextureFromSurface(rc->renderer, surface);
+        entry->w = surface->w;
+        entry->h = surface->h;
         SDL_DestroySurface(surface);
-        return;
+
+        if (entry->texture == NULL)
+            return;
     }
 
     SDL_FRect dst = {
         .x = (float)x,
         .y = (float)y,
-        .w = (float)surface->w,
-        .h = (float)surface->h
+        .w = (float)entry->w,
+        .h = (float)entry->h
     };
 
-    SDL_RenderTexture(rc->renderer, texture, NULL, &dst);
-    SDL_DestroyTexture(texture);
-    SDL_DestroySurface(surface);
+    SDL_RenderTexture(rc->renderer, entry->texture, NULL, &dst);
 }
 
 void renderEnd(render_context_t* rc) {

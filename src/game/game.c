@@ -416,6 +416,30 @@ static void drawMiniPiece(render_context_t* rc, int piece, int x, int y, int siz
     }
 }
 
+static void drawMiniPieceCentered(render_context_t* rc, int piece, int x, int y,
+        int boxSize, int cellSize)
+{
+    const block_t* shape = PIECES[piece][0];
+    int minCol = shape[0].col;
+    int maxCol = shape[0].col;
+    int minRow = shape[0].row;
+    int maxRow = shape[0].row;
+
+    for (int i = 1; i < 4; i++) {
+        if (shape[i].col < minCol) minCol = shape[i].col;
+        if (shape[i].col > maxCol) maxCol = shape[i].col;
+        if (shape[i].row < minRow) minRow = shape[i].row;
+        if (shape[i].row > maxRow) maxRow = shape[i].row;
+    }
+
+    int width = (maxCol - minCol + 1) * cellSize;
+    int height = (maxRow - minRow + 1) * cellSize;
+    int originX = x + (boxSize - width) / 2 - minCol * cellSize;
+    int originY = y + (boxSize - height) / 2 - minRow * cellSize;
+
+    drawMiniPiece(rc, piece, originX, originY, cellSize);
+}
+
 static int elapsedSeconds(const game_t* game) {
     return (int)((SDL_GetTicks() - game->startedAt) / 1000);
 }
@@ -485,7 +509,7 @@ static void drawHud(const game_t* game, render_context_t* rc) {
         count = MAX_NEXT_PIECES;
 
     for (int i = 0; i < count; i++) {
-        drawMiniPiece(rc, game->next[i], x, y, 12);
+        drawMiniPieceCentered(rc, game->next[i], x, y, 48, 12);
         y += 54;
     }
 
@@ -496,7 +520,7 @@ static void drawHud(const game_t* game, render_context_t* rc) {
     renderHudBox(rc, x, y, 56, 56);
 
     if (game->hasHeldPiece)
-        drawMiniPiece(rc, game->heldPiece, x + 4, y + 4, 12);
+        drawMiniPieceCentered(rc, game->heldPiece, x, y, 56, 12);
 
     if (game->gameOver)
         renderText(rc, x, game->config.rows * game->config.blockSize - 28, "R restart");
@@ -505,7 +529,8 @@ static void drawHud(const game_t* game, render_context_t* rc) {
 void drawGame(const game_t* game, render_context_t* rc) {
     for (int r = 0; r < BOARD_ROWS; r++)
     for (int c = 0; c < BOARD_COLS; c++)
-        renderCell(rc, r, c, game->board[r][c]);
+        if (game->board[r][c] != CELL_EMPTY)
+            renderCell(rc, r, c, game->board[r][c]);
 
     if (!game->gameOver) {
         if (game->config.showGhost)

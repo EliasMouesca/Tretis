@@ -13,7 +13,6 @@ PREFIX  ?= /usr
 SRCS := $(shell find $(SRC_DIR) -name '*.c')
 MODULES_SRCS := $(filter-out %_test.c $(SRC_DIR)/main.c,$(SRCS))
 MODULES := $(sort $(patsubst $(SRC_DIR)/%/,%,$(dir $(MODULES_SRCS))))
-TESTS := $(patsubst %,test-%,$(MODULES))
 MAIN_SRC := $(SRC_DIR)/main.c
 
 MODULES_OBJS := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(MODULES_SRCS))
@@ -30,9 +29,15 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 
 TEST_SRCS := $(filter %_test.c,$(SRCS))
 TEST_OBJS := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(TEST_SRCS))
+TEST_MODULES := $(sort $(patsubst $(SRC_DIR)/%/,%,$(dir $(TEST_SRCS))))
+TESTS := $(patsubst %,test-%,$(TEST_MODULES))
 
 test: $(TESTS)
-	@printf "\033[1;32mAll tests passed!\033[0m\n\n"
+	@if [ -z "$(TESTS)" ]; then \
+		printf "\033[33mNo tests found.\033[0m\n\n"; \
+	else \
+		printf "\033[1;32mAll tests passed!\033[0m\n\n"; \
+	fi
 
 test-run: $(TARGET)
 	valgrind $(VALGRINDFLAGS) $(PWD)/$< --block-size 7
@@ -59,4 +64,4 @@ test-$1: $(MODULES_OBJS) $(OBJ_DIR)/$1/$1_test.o
 	@printf "\033[90m===============\033[0m\n\n"
 	@rm $$@
 endef
-$(foreach f,$(MODULES),$(eval $(call build_test_rule,$f)))
+$(foreach f,$(TEST_MODULES),$(eval $(call build_test_rule,$f)))
