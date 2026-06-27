@@ -8,6 +8,7 @@ PWD := $(shell pwd)
 SRC_DIR := src
 OBJ_DIR := obj
 TARGET  := main
+PREFIX  ?= /usr
 
 SRCS := $(shell find $(SRC_DIR) -name '*.c')
 MODULES_SRCS := $(filter-out %_test.c $(SRC_DIR)/main.c,$(SRCS))
@@ -42,7 +43,11 @@ test-stress: $(TARGET)
 clean:
 	rm -rf $(OBJ_DIR) $(TARGET) test test-*
 
-.PHONY: all clean test test-*
+install: $(TARGET)
+	install -Dm755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/tretis
+	install -Dm644 fonts/SpaceMono-Regular.ttf $(DESTDIR)$(PREFIX)/share/tretis/fonts/SpaceMono-Regular.ttf
+
+.PHONY: all clean install test test-*
 
 
 # Magia rara porque make no deja usar dos veces la wildcard (%)
@@ -55,4 +60,3 @@ test-$1: $(MODULES_OBJS) $(OBJ_DIR)/$1/$1_test.o
 	@rm $$@
 endef
 $(foreach f,$(MODULES),$(eval $(call build_test_rule,$f)))
-

@@ -1,11 +1,13 @@
 #include <SDL3/SDL.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "game/game.h"
 #include "log/log.h"
 #include "render_context/render_context.h"
 #include "tretis_config.h"
+#include "tretis_stats.h"
 
 static int readIntArg(int argc, char* argv[], int* i, int fallback) {
     if (*i + 1 >= argc)
@@ -15,11 +17,83 @@ static int readIntArg(int argc, char* argv[], int* i, int fallback) {
     return atoi(argv[*i]);
 }
 
-static tretis_config_t parseConfig(int argc, char* argv[]) {
+static const char* readStringArg(int argc, char* argv[], int* i, const char* fallback) {
+    if (*i + 1 >= argc)
+        return fallback;
+
+    (*i)++;
+    return argv[*i];
+}
+
+static const char* randomizerName(randomizer_t randomizer) {
+    switch (randomizer) {
+        case RANDOMIZER_7_BAG: return "7bag";
+        case RANDOMIZER_UNIFORM: return "uniform";
+        case RANDOMIZER_TGM: return "tgm";
+        case RANDOMIZER_35_BAG: return "35bag";
+    }
+
+    return "7bag";
+}
+
+static randomizer_t parseRandomizer(const char* value, randomizer_t fallback) {
+    if (strcmp(value, "7bag") == 0 || strcmp(value, "bag") == 0)
+        return RANDOMIZER_7_BAG;
+    if (strcmp(value, "uniform") == 0 || strcmp(value, "random") == 0)
+        return RANDOMIZER_UNIFORM;
+    if (strcmp(value, "tgm") == 0 || strcmp(value, "history") == 0)
+        return RANDOMIZER_TGM;
+    if (strcmp(value, "35bag") == 0 || strcmp(value, "tgm3") == 0)
+        return RANDOMIZER_35_BAG;
+
+    warn("Ignoring unknown randomizer '%s'", value);
+    return fallback;
+}
+
+static void printHelp(const char* program) {
+    tretis_config_t defaults = defaultTretisConfig();
+
+    printf("Usage: %s [options]\n", program);
+    printf("\n");
+    printf("Options:\n");
+    printf("  --help                 Show this help and exit\n");
+    printf("  --hud                  Show the right HUD panel (default)\n");
+    printf("  --no-hud               Hide the right HUD panel\n");
+    printf("  --ghost                Show the landing shadow (default)\n");
+    printf("  --no-ghost             Hide the landing shadow\n");
+    printf("  --next N               Number of next pieces to show, 0-%d (default %d)\n", MAX_NEXT_PIECES, DEFAULT_NEXT_PIECES);
+    printf("  --block-size N         Pixel size for each board block (default %d)\n", DEFAULT_BLOCK_SIZE);
+    printf("  --fall-delay N         Milliseconds between automatic falls (default 500)\n");
+    printf("  --randomizer NAME      Piece generator: 7bag, uniform, tgm, 35bag (default %s)\n",
+            randomizerName(defaults.randomizer));
+    printf("  --sidebar-width N      Width of the right HUD panel (default %d)\n", DEFAULT_SIDEBAR_WIDTH);
+    printf("  --stats                Print saved stats and exit\n");
+    printf("  --stats-file PATH      File used to load and save stats (default $HOME/.config/tretis/stats)\n");
+    printf("  --highscore-file PATH  Alias for --stats-file\n");
+    printf("  --font PATH            TTF font file for HUD text\n");
+    printf("  --font-size N          HUD font size in pixels (default 14)\n");
+    printf("\n");
+    printf("Controls:\n");
+    printf("  Left/Right or A/D      Move\n");
+    printf("  Down or S              Soft drop\n");
+    printf("  Up or W                Rotate\n");
+    printf("  Space                  Hard drop\n");
+    printf("  E                      Hold/swap current piece\n");
+    printf("  R                      Restart\n");
+    printf("  Q                      Quit\n");
+}
+
+static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
     tretis_config_t config = defaultTretisConfig();
+    *printStats = false;
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--no-hud") == 0) {
+        if (strcmp(argv[i], "--help") == 0) {
+            printHelp(argv[0]);
+            exit(0);
+        } else if (strcmp(argv[i], "--stats") == 0) {
+            *printStats = true;
+        } else if (strcmp(argv[i], "--no-hud") == 0) {
             config.showHud = false;
         } else if (strcmp(argv[i], "--hud") == 0) {
             config.showHud = true;
@@ -33,8 +107,21 @@ static tretis_config_t parseConfig(int argc, char* argv[]) {
             config.blockSize = readIntArg(argc, argv, &i, config.blockSize);
         } else if (strcmp(argv[i], "--fall-delay") == 0) {
             config.fallDelay = readIntArg(argc, argv, &i, config.fallDelay);
+        } else if (strcmp(argv[i], "--randomizer") == 0) {
+            const char* value = readStringArg(argc, argv, &i, randomizerName(config.randomizer));
+            config.randomizer = parseRandomizer(value, config.randomizer);
         } else if (strcmp(argv[i], "--sidebar-width") == 0) {
             config.sidebarWidth = readIntArg(argc, argv, &i, config.sidebarWidth);
+        } else if (strcmp(argv[i], "--stats-file") == 0 || strcmp(argv[i], "--highscore-file") == 0) {
+            const char* path = readStringArg(argc, argv, &i, config.statsPath);
+            strncpy(config.statsPath, path, sizeof(config.statsPath) - 1);
+            config.statsPath[sizeof(config.statsPath) - 1] = '\0';
+        } else if (strcmp(argv[i], "--font") == 0) {
+            const char* path = readStringArg(argc, argv, &i, config.fontPath);
+            strncpy(config.fontPath, path, sizeof(config.fontPath) - 1);
+            config.fontPath[sizeof(config.fontPath) - 1] = '\0';
+        } else if (strcmp(argv[i], "--font-size") == 0) {
+            config.fontSize = readIntArg(argc, argv, &i, config.fontSize);
         } else {
             warn("Ignoring unknown option '%s'", argv[i]);
         }
@@ -50,12 +137,21 @@ static tretis_config_t parseConfig(int argc, char* argv[]) {
         config.fallDelay = 50;
     if (config.sidebarWidth < 100)
         config.sidebarWidth = 100;
+    if (config.fontSize < 8)
+        config.fontSize = 8;
 
     return config;
 }
 
 int main(int argc, char* argv[]) {
-    tretis_config_t config = parseConfig(argc, argv);
+    bool printStats = false;
+    tretis_config_t config = parseConfig(argc, argv, &printStats);
+
+    if (printStats) {
+        printTretisStats(config.statsPath);
+        return 0;
+    }
+
     render_context_t* rc = createRenderContext(config);
     game_t game;
 
@@ -81,6 +177,7 @@ int main(int argc, char* argv[]) {
         SDL_Delay(16);
     }
 
+    finalizeGame(&game);
     destroyRenderContext(&rc);
 
     return 0;

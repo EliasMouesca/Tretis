@@ -61,13 +61,90 @@ static cell_color_t pieceColor(int piece) {
     return (cell_color_t)(piece + 1);
 }
 
-static int randomPiece() {
+static int uniformPiece() {
     return rand() % 7;
+}
+
+static void shuffle(int* values, int count) {
+    for (int i = count - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int tmp = values[i];
+        values[i] = values[j];
+        values[j] = tmp;
+    }
+}
+
+static void refillBag(game_t* game) {
+    if (game->config.randomizer == RANDOMIZER_35_BAG) {
+        game->bagSize = 35;
+        for (int i = 0; i < game->bagSize; i++)
+            game->bag[i] = i % 7;
+    } else {
+        game->bagSize = 7;
+        for (int i = 0; i < game->bagSize; i++)
+            game->bag[i] = i;
+    }
+
+    shuffle(game->bag, game->bagSize);
+    game->bagIndex = 0;
+}
+
+static bool inHistory(const game_t* game, int piece) {
+    for (int i = 0; i < 4; i++)
+        if (game->history[i] == piece)
+            return true;
+
+    return false;
+}
+
+static void pushHistory(game_t* game, int piece) {
+    for (int i = 3; i > 0; i--)
+        game->history[i] = game->history[i - 1];
+
+    game->history[0] = piece;
+}
+
+static int tgmPiece(game_t* game) {
+    int piece = uniformPiece();
+
+    while (game->generatedPieces == 0 && (piece == 3 || piece == 4 || piece == 6))
+        piece = uniformPiece();
+
+    for (int i = 0; i < 4 && inHistory(game, piece); i++)
+        piece = uniformPiece();
+
+    pushHistory(game, piece);
+    game->generatedPieces++;
+    return piece;
+}
+
+static int nextRandomPiece(game_t* game) {
+    switch (game->config.randomizer) {
+        case RANDOMIZER_UNIFORM:
+            return uniformPiece();
+        case RANDOMIZER_TGM:
+            return tgmPiece(game);
+        case RANDOMIZER_35_BAG:
+        case RANDOMIZER_7_BAG:
+            if (game->bagIndex >= game->bagSize)
+                refillBag(game);
+            return game->bag[game->bagIndex++];
+    }
+
+    return uniformPiece();
 }
 
 static void refillNextQueue(game_t* game) {
     for (int i = 0; i < MAX_NEXT_PIECES; i++)
-        game->next[i] = randomPiece();
+        game->next[i] = nextRandomPiece(game);
+}
+
+static void updateHighScore(game_t* game) {
+    if (game->score <= game->stats.highScore)
+        return;
+
+    game->stats.highScore = game->score;
+    saveTretisStats(game->config.statsPath, game->stats);
 }
 
 static void spawnPiece(game_t* game) {
@@ -76,10 +153,11 @@ static void spawnPiece(game_t* game) {
     for (int i = 0; i < MAX_NEXT_PIECES - 1; i++)
         game->next[i] = game->next[i + 1];
 
-    game->next[MAX_NEXT_PIECES - 1] = randomPiece();
+    game->next[MAX_NEXT_PIECES - 1] = nextRandomPiece(game);
     game->rotation = 0;
     game->row = 0;
     game->col = 3;
+    game->swappedHeldThisTurn = false;
 }
 
 static bool collides(const game_t* game, int row, int col, int rotation) {
@@ -131,6 +209,11 @@ static void addLineScore(game_t* game, int cleared) {
         case 4: game->score += 800; break;
         default: break;
     }
+
+    if (cleared == 4)
+        game->tetrises++;
+
+    updateHighScore(game);
 }
 
 static void lockPiece(game_t* game) {
@@ -149,8 +232,10 @@ static void lockPiece(game_t* game) {
     addLineScore(game, clearLines(game));
     spawnPiece(game);
 
-    if (collides(game, game->row, game->col, game->rotation))
+    if (collides(game, game->row, game->col, game->rotation)) {
         game->gameOver = true;
+        finalizeGame(game);
+    }
 }
 
 static void movePiece(game_t* game, int drow, int dcol) {
@@ -200,6 +285,31 @@ static void hardDrop(game_t* game) {
     lockPiece(game);
 }
 
+static void holdPiece(game_t* game) {
+    if (game->gameOver || game->swappedHeldThisTurn)
+        return;
+
+    if (!game->hasHeldPiece) {
+        game->heldPiece = game->piece;
+        game->hasHeldPiece = true;
+        spawnPiece(game);
+    } else {
+        int piece = game->piece;
+        game->piece = game->heldPiece;
+        game->heldPiece = piece;
+        game->rotation = 0;
+        game->row = 0;
+        game->col = 3;
+
+        if (collides(game, game->row, game->col, game->rotation)) {
+            game->gameOver = true;
+            finalizeGame(game);
+        }
+    }
+
+    game->swappedHeldThisTurn = true;
+}
+
 void initGame(game_t* game, tretis_config_t config) {
     static bool seeded = false;
 
@@ -211,6 +321,13 @@ void initGame(game_t* game, tretis_config_t config) {
     memset(game, 0, sizeof(*game));
     game->config = config;
     game->running = true;
+    game->heldPiece = -1;
+    game->bagIndex = 0;
+    game->bagSize = 0;
+    for (int i = 0; i < 4; i++)
+        game->history[i] = 6;
+    game->generatedPieces = 0;
+    game->stats = loadTretisStats(config.statsPath);
     game->startedAt = SDL_GetTicks();
     refillNextQueue(game);
     spawnPiece(game);
@@ -218,11 +335,14 @@ void initGame(game_t* game, tretis_config_t config) {
 
 void handleGameKey(game_t* game, int key) {
     switch (key) {
-        case SDLK_ESCAPE:
         case SDLK_Q:
             game->running = false;
             break;
+        case SDLK_E:
+            holdPiece(game);
+            break;
         case SDLK_R:
+            finalizeGame(game);
             initGame(game, game->config);
             break;
         case SDLK_LEFT:
@@ -296,13 +416,36 @@ static void drawMiniPiece(render_context_t* rc, int piece, int x, int y, int siz
     }
 }
 
+static int elapsedSeconds(const game_t* game) {
+    return (int)((SDL_GetTicks() - game->startedAt) / 1000);
+}
+
+void finalizeGame(game_t* game) {
+    int elapsed = elapsedSeconds(game);
+
+    if (game->statsSaved)
+        return;
+
+    game->stats.gamesPlayed++;
+
+    if (game->score > game->stats.highScore)
+        game->stats.highScore = game->score;
+    if (elapsed > game->stats.longestTime)
+        game->stats.longestTime = elapsed;
+    if (game->tetrises > game->stats.mostTetrises)
+        game->stats.mostTetrises = game->tetrises;
+
+    saveTretisStats(game->config.statsPath, game->stats);
+    game->statsSaved = true;
+}
+
 static void drawHud(const game_t* game, render_context_t* rc) {
     if (!game->config.showHud)
         return;
 
     int x = game->config.cols * game->config.blockSize + 16;
     int y = 18;
-    uint64_t elapsed = (SDL_GetTicks() - game->startedAt) / 1000;
+    uint64_t elapsed = (uint64_t)elapsedSeconds(game);
     char buffer[64];
 
     renderText(rc, x, y, "TRETIS");
@@ -312,7 +455,15 @@ static void drawHud(const game_t* game, render_context_t* rc) {
     renderText(rc, x, y, buffer);
     y += 16;
 
+    snprintf(buffer, sizeof(buffer), "high %d", game->stats.highScore);
+    renderText(rc, x, y, buffer);
+    y += 16;
+
     snprintf(buffer, sizeof(buffer), "lines %d", game->lines);
+    renderText(rc, x, y, buffer);
+    y += 16;
+
+    snprintf(buffer, sizeof(buffer), "tetrises %d", game->tetrises);
     renderText(rc, x, y, buffer);
     y += 16;
 
@@ -324,7 +475,7 @@ static void drawHud(const game_t* game, render_context_t* rc) {
             (unsigned long long)(elapsed / 60),
             (unsigned long long)(elapsed % 60));
     renderText(rc, x, y, buffer);
-    y += 34;
+    y += 28;
 
     renderText(rc, x, y, "next");
     y += 18;
@@ -337,6 +488,15 @@ static void drawHud(const game_t* game, render_context_t* rc) {
         drawMiniPiece(rc, game->next[i], x, y, 12);
         y += 54;
     }
+
+    y += 10;
+    renderText(rc, x, y, "hold");
+    y += 18;
+
+    renderHudBox(rc, x, y, 56, 56);
+
+    if (game->hasHeldPiece)
+        drawMiniPiece(rc, game->heldPiece, x + 4, y + 4, 12);
 
     if (game->gameOver)
         renderText(rc, x, game->config.rows * game->config.blockSize - 28, "R restart");
