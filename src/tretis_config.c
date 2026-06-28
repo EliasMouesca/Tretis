@@ -70,7 +70,7 @@ tretis_config_t defaultTretisConfig() {
 
     makeDefaultRuntimePath(config.statsPath, sizeof(config.statsPath), "stats");
     makeDefaultRuntimePath(config.configPath, sizeof(config.configPath), "config");
-    strncpy(config.fontPath, "./fonts/SpaceMono-Regular.ttf", sizeof(config.fontPath) - 1);
+    snprintf(config.fontPath, sizeof(config.fontPath), "./fonts/SpaceMono-Regular.ttf");
 
     return config;
 }

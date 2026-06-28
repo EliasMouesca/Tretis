@@ -3,6 +3,8 @@ CC      := gcc
 CFLAGS  := -ggdb -Wall -Wno-stringop-truncation -Wextra -Wmisleading-indentation -O2 -Iinclude $(shell pkg-config --cflags sdl3)
 LDFLAGS := $(shell pkg-config --libs sdl3 sdl3-ttf) -lm
 VALGRINDFLAGS := --tool=memcheck --leak-check=yes --track-origins=yes --num-callers=12 -s --quiet --show-leak-kinds=definite,indirect --errors-for-leak-kinds=definite,indirect
+VALGRIND_OK := $(shell valgrind --quiet true >/dev/null 2>&1 && printf 1 || printf 0)
+TEST_RUNNER := $(if $(filter 1,$(VALGRIND_OK)),valgrind $(VALGRINDFLAGS),)
 
 PWD := $(shell pwd)
 SRC_DIR := src
@@ -60,7 +62,10 @@ define build_test_rule
 test-$1: $(MODULES_OBJS) $(OBJ_DIR)/$1/$1_test.o
 	@$(CC) $$^ $(LDFLAGS) -o $$@
 	@printf "\033[90m\n=== $1 test ===\033[0m\n"
-	@valgrind $(VALGRINDFLAGS) $(PWD)/$$@ && printf "\033[32m\nPassed!\n\033[0m"
+	@if [ "$(VALGRIND_OK)" != "1" ]; then \
+		printf "\033[33m\nValgrind unavailable; running without memcheck.\033[0m\n"; \
+	fi
+	@$(TEST_RUNNER) $(PWD)/$$@ && printf "\033[32m\nPassed!\n\033[0m"
 	@printf "\033[90m===============\033[0m\n\n"
 	@rm $$@
 endef

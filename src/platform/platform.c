@@ -18,7 +18,7 @@ void ensureParentDir(const char* path) {
     if (strlen(path) >= sizeof(buffer))
         return;
 
-    strcpy(buffer, path);
+    snprintf(buffer, sizeof(buffer), "%s", path);
 
     for (char* p = buffer; *p; p++)
         if (isSeparator(*p))

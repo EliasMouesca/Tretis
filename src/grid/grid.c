@@ -2,23 +2,53 @@
 
 #include "../log/log.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
-grid_t* makeCopyGrid(grid_t* grid) {
+static grid_t* allocGrid() {
     grid_t* g = malloc(sizeof(grid_t));
+
+    if (!g)
+        critical("Out of memory");
+
+    return g;
+}
+
+static size_t gridDataSize(int rows, int cols, size_t elementSize) {
+    if (rows < 0 || cols < 0)
+        critical("Grid dimensions must be non-negative");
+    if (elementSize == 0)
+        critical("Grid element size must be greater than zero");
+
+    size_t rowCount = (size_t)rows;
+    size_t colCount = (size_t)cols;
+
+    if (rowCount != 0 && colCount > SIZE_MAX / rowCount)
+        critical("Grid dimensions are too large");
+
+    size_t cells = rowCount * colCount;
+    if (cells != 0 && elementSize > SIZE_MAX / cells)
+        critical("Grid storage is too large");
+
+    return cells * elementSize;
+}
+
+grid_t* makeCopyGrid(const grid_t* grid) {
+    if (!grid)
+        critical("Cannot copy null grid");
+
+    grid_t* g = allocGrid();
     g->rows = grid->rows;
     g->cols = grid->cols;
     g->elementSize = grid->elementSize;
-    void* init = grid->cells;
 
-    size_t total = (size_t)g->rows * (size_t)g->cols * g->elementSize;
+    size_t total = gridDataSize(g->rows, g->cols, g->elementSize);
 
     if (total > 0) {
         g->cells = malloc(total);
-        if (!g->cells) critical("Out of memory\n");
-        memcpy(g->cells, init, total);
+        if (!g->cells) critical("Out of memory");
+        memcpy(g->cells, grid->cells, total);
     } else {
         g->cells = NULL;
     }
@@ -27,94 +57,47 @@ grid_t* makeCopyGrid(grid_t* grid) {
 }
 
 grid_t* makeEmptyGrid() {
-    grid_t* g = malloc(sizeof(grid_t));
+    grid_t* g = allocGrid();
     g->rows = 0;
     g->cols = 0;
-    g->elementSize = 0;
+    g->elementSize = 1;
     g->cells = NULL;
 
     return g;
 }
 
 grid_t* makeModelGrid(int rows, int cols, size_t elementSize, const void* model) {
-    if (elementSize == 0) critical("Llamada a makeModelGrid() con elementSize = 0");
-    grid_t* g = malloc(sizeof(grid_t));
+    grid_t* g = allocGrid();
     g->rows = rows;
     g->cols = cols;
     g->elementSize = elementSize;
 
-    size_t total = (size_t)rows * (size_t)cols * elementSize;
-    g->cells = malloc(total);
-
-    if (!g->cells) critical("Out of memory\n");
-
-    if (!model){
-        memset(g->cells, 0 , total);
+    size_t total = gridDataSize(rows, cols, elementSize);
+    if (total == 0) {
+        g->cells = NULL;
         return g;
     }
 
-    for (size_t i = 0; i < g->cols * g->rows * g->elementSize; i+=g->elementSize)
-        memcpy((char*)g->cells+i, model, elementSize);
+    g->cells = malloc(total);
+    if (!g->cells) critical("Out of memory");
+
+    if (!model) {
+        memset(g->cells, 0, total);
+        return g;
+    }
+
+    for (size_t i = 0; i < total; i += elementSize)
+        memcpy((char*)g->cells + i, model, elementSize);
 
     return g;
-
 }
-
-/*
-void shiftGrid(grid_t* grid, direction_t direction) {
-    int dx, dy;
-
-    switch (direction) {
-        case DIRECTION_UP:    dx = 0;  dy = 1;  break;
-        case DIRECTION_LEFT:  dx = 1;  dy = 0;  break;
-        case DIRECTION_DOWN:  dx = 0;  dy = -1; break;
-        case DIRECTION_RIGHT: dx = -1; dy = 0;  break;
-        default:              dx = 0;  dy = 0;  break;
-    }
-
-    size_t total = (size_t)grid->rows * (size_t)grid->cols * grid->elementSize;
-
-    if (total == 0) return;
-
-    unsigned char* buffer = malloc(total);
-    if (!buffer) {
-        fprintf(stderr, "Out of memory\n");
-        exit(1);
-    }
-
-    memset(buffer, 0, total);
-
-    unsigned char* src = (unsigned char*)grid->cells;
-
-    for (int y = 0; y < grid->rows; y++)
-    for (int x = 0; x < grid->cols; x++) {
-        int newX = x + dx;
-        int newY = y + dy;
-
-        unsigned char* dst_cell =
-            buffer + ((size_t)(y * grid->cols + x) * grid->elementSize);
-
-        if (newX >= 0 && newX < grid->cols &&
-            newY >= 0 && newY < grid->rows)
-        {
-            unsigned char* src_cell =
-                src + ((size_t)(newY * grid->cols + newX) * grid->elementSize);
-
-            memcpy(dst_cell, src_cell, grid->elementSize);
-        }
-    }
-
-    memcpy(grid->cells, buffer, total);
-    free(buffer);
-}
-*/
 
 void freeGrid(grid_t** grid) {
+    if (!grid || !*grid)
+        return;
+
     grid_t* g = *grid;
     if (g->cells) free(g->cells);
     free(g);
     *grid = NULL;
-
-    return;
 }
-
