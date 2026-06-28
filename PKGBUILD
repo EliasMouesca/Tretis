@@ -3,7 +3,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc='Small SDL3 Tetris implementation'
 arch=('x86_64')
-url='https://example.invalid/tretis'
+url='https://github.com/EliasMouesca/Tretis'
 license=('custom')
 depends=('sdl3' 'sdl3_ttf')
 makedepends=('gcc' 'make' 'pkgconf')
@@ -11,11 +11,11 @@ source=()
 sha256sums=()
 
 build() {
-    cd "$startdir/../.."
+    cd "$startdir"
     make
 }
 
 package() {
-    cd "$startdir/../.."
+    cd "$startdir"
     make DESTDIR="$pkgdir" PREFIX=/usr install
 }
