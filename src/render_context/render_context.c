@@ -32,7 +32,6 @@ static TTF_Font* openFont(tretis_config_t config) {
     const char* fallbacks[] = {
         config.fontPath,
         "./fonts/SpaceMono-Regular.ttf",
-        ".\\fonts\\SpaceMono-Regular.ttf",
         "/usr/share/tretis/fonts/SpaceMono-Regular.ttf",
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",

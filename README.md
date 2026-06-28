@@ -38,36 +38,6 @@ Optional install target:
 sudo make install
 ```
 
-## Build on Windows
-
-The supported Windows build uses MSYS2 MinGW. Run these commands from the
-"UCRT64" MSYS2 shell:
-
-```sh
-pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL3 mingw-w64-ucrt-x86_64-SDL3_ttf mingw-w64-ucrt-x86_64-nsis make pkgconf
-make -f Makefile.windows
-./tretis.exe
-```
-
-To create something a non-technical Windows user can double-click, build the
-installer:
-
-```sh
-make -f Makefile.windows package
-```
-
-That writes a portable bundle to `dist/tretis-windows/` and, when NSIS is
-installed, a double-click installer at `dist/TretisSetup.exe`. The installer
-copies the game and its DLLs into Program Files, creates Start Menu and desktop
-shortcuts, and adds an uninstaller.
-
-Keep the `fonts/` directory next to `tretis.exe` so the bundled HUD font can be
-loaded. Runtime stats and preferences are stored under:
-
-```text
-%APPDATA%\tretis\
-```
-
 ## Controls
 
 - Left/Right or `A`/`D`: move
@@ -79,8 +49,7 @@ loaded. Runtime stats and preferences are stored under:
 - `R`: restart
 - `Q`: quit
 
-Key bindings can also be edited in `$HOME/.config/tretis/config` on Linux or
-`%APPDATA%\tretis\config` on Windows.
+Key bindings can also be edited in `$HOME/.config/tretis/config`.
 
 ## Command-Line Options
 
@@ -105,8 +74,7 @@ Key bindings can also be edited in `$HOME/.config/tretis/config` on Linux or
 - `--font-size N`: HUD font size in pixels.
 
 Command-line options override saved preferences for that run. Preferences are
-loaded from and saved to `$HOME/.config/tretis/config` on Linux or
-`%APPDATA%\tretis\config` on Windows.
+loaded from and saved to `$HOME/.config/tretis/config`.
 
 ## Development
 
