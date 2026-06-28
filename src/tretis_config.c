@@ -1,39 +1,11 @@
 #include "tretis_config.h"
 
 #include <SDL3/SDL.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
-static void ensureParentDir(const char* path) {
-    char buffer[512];
-    char* slash;
-
-    if (strlen(path) >= sizeof(buffer))
-        return;
-
-    strcpy(buffer, path);
-    slash = strrchr(buffer, '/');
-
-    if (!slash)
-        return;
-
-    *slash = '\0';
-
-    for (char* p = buffer + 1; *p; p++) {
-        if (*p != '/')
-            continue;
-
-        *p = '\0';
-        if (mkdir(buffer, 0700) != 0 && errno != EEXIST)
-            return;
-        *p = '/';
-    }
-
-    mkdir(buffer, 0700);
-}
+#include "platform/platform.h"
 
 SDL_Keycode parseKeyName(const char* value, SDL_Keycode fallback) {
     if (strcmp(value, "left") == 0) return SDLK_LEFT;
@@ -95,15 +67,8 @@ tretis_config_t defaultTretisConfig() {
         .keyPause = SDLK_P
     };
 
-    const char* home = getenv("HOME");
-    if (home != NULL && home[0] != '\0') {
-        snprintf(config.statsPath, sizeof(config.statsPath), "%s/.config/tretis/stats", home);
-        snprintf(config.configPath, sizeof(config.configPath), "%s/.config/tretis/config", home);
-    } else {
-        strncpy(config.statsPath, ".tretis_stats", sizeof(config.statsPath) - 1);
-        strncpy(config.configPath, ".tretis_config", sizeof(config.configPath) - 1);
-    }
-
+    makeDefaultRuntimePath(config.statsPath, sizeof(config.statsPath), "stats");
+    makeDefaultRuntimePath(config.configPath, sizeof(config.configPath), "config");
     strncpy(config.fontPath, "./fonts/SpaceMono-Regular.ttf", sizeof(config.fontPath) - 1);
 
     return config;

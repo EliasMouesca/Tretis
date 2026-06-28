@@ -75,12 +75,20 @@ static void printHelp(const char* program) {
             randomizerName(defaults.randomizer));
     printf("  --sidebar-width N      Width of the right HUD panel (default %d)\n", DEFAULT_SIDEBAR_WIDTH);
     printf("  --stats                Print saved stats and exit\n");
+#ifdef _WIN32
+    printf("  --stats-file PATH      File used to load and save stats (default %%APPDATA%%\\tretis\\stats)\n");
+#else
     printf("  --stats-file PATH      File used to load and save stats (default $HOME/.config/tretis/stats)\n");
+#endif
     printf("  --highscore-file PATH  Alias for --stats-file\n");
     printf("  --font PATH            TTF font file for HUD text\n");
     printf("  --font-size N          HUD font size in pixels (default 14)\n");
     printf("\n");
+#ifdef _WIN32
+    printf("Preferences are loaded from and saved to %%APPDATA%%\\tretis\\config.\n");
+#else
     printf("Preferences are loaded from and saved to $HOME/.config/tretis/config.\n");
+#endif
     printf("Key bindings can be edited there with key_left, key_right, key_down,\n");
     printf("key_rotate, key_drop, key_hold, key_restart, key_quit, and key_pause.\n");
     printf("\n");

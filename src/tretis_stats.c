@@ -1,37 +1,9 @@
 #include "tretis_stats.h"
 
-#include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 
-static void ensureRuntimeDir(const char* path) {
-    char buffer[512];
-    char* slash;
-
-    if (strlen(path) >= sizeof(buffer))
-        return;
-
-    strcpy(buffer, path);
-    slash = strrchr(buffer, '/');
-
-    if (!slash)
-        return;
-
-    *slash = '\0';
-
-    for (char* p = buffer + 1; *p; p++) {
-        if (*p != '/')
-            continue;
-
-        *p = '\0';
-        if (mkdir(buffer, 0700) != 0 && errno != EEXIST)
-            return;
-        *p = '/';
-    }
-
-    mkdir(buffer, 0700);
-}
+#include "platform/platform.h"
 
 tretis_stats_t loadTretisStats(const char* path) {
     tretis_stats_t stats = {0};
@@ -59,7 +31,7 @@ tretis_stats_t loadTretisStats(const char* path) {
 }
 
 void saveTretisStats(const char* path, tretis_stats_t stats) {
-    ensureRuntimeDir(path);
+    ensureParentDir(path);
 
     FILE* file = fopen(path, "w");
 

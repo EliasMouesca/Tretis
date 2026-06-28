@@ -1,7 +1,9 @@
 /tretis
+/tretis.exe
 /main
 /.tretis_highscore
 /.tretis_stats
 /obj/
+/dist/
 /pkg/
 /*.pkg.tar.*
