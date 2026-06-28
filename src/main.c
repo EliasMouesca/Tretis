@@ -66,6 +66,7 @@ static void printHelp(const char* program) {
     printf("  --next N               Number of next pieces to show, 0-%d (default %d)\n", MAX_NEXT_PIECES, DEFAULT_NEXT_PIECES);
     printf("  --block-size N         Pixel size for each board block (default %d)\n", DEFAULT_BLOCK_SIZE);
     printf("  --fall-delay N         Milliseconds between automatic falls (default 500)\n");
+    printf("  --soft-fall-delay N    Milliseconds between held soft drop steps (default 45)\n");
     printf("  --speedup              Slowly increase fall speed over time (default)\n");
     printf("  --no-speedup           Keep fall speed constant\n");
     printf("  --speedup-every N      Seconds between tiny speed increases (default 45)\n");
@@ -124,6 +125,8 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
             config.blockSize = readIntArg(argc, argv, &i, config.blockSize);
         } else if (strcmp(argv[i], "--fall-delay") == 0) {
             config.fallDelay = readIntArg(argc, argv, &i, config.fallDelay);
+        } else if (strcmp(argv[i], "--soft-fall-delay") == 0) {
+            config.softFallDelay = readIntArg(argc, argv, &i, config.softFallDelay);
         } else if (strcmp(argv[i], "--speedup") == 0) {
             config.speedup = true;
         } else if (strcmp(argv[i], "--no-speedup") == 0) {
@@ -162,6 +165,8 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
         config.blockSize = 8;
     if (config.fallDelay < 50)
         config.fallDelay = 50;
+    if (config.softFallDelay < 10)
+        config.softFallDelay = 10;
     if (config.minFallDelay < 50)
         config.minFallDelay = 50;
     if (config.minFallDelay > config.fallDelay)
@@ -201,6 +206,9 @@ int main(int argc, char* argv[]) {
 
             if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
                 handleGameKey(&game, event.key.key);
+
+            if (event.type == SDL_EVENT_KEY_UP)
+                releaseGameKey(&game, event.key.key);
         }
 
         updateGame(&game, SDL_GetTicks());

@@ -29,8 +29,15 @@ struct render_context_t {
 };
 
 static TTF_Font* openFont(tretis_config_t config) {
+    char executableFont[FONT_PATH_MAX] = {0};
+    const char* basePath = SDL_GetBasePath();
+
+    if (basePath != NULL)
+        snprintf(executableFont, sizeof(executableFont), "%sfonts/SpaceMono-Regular.ttf", basePath);
+
     const char* fallbacks[] = {
         config.fontPath,
+        executableFont,
         "./fonts/SpaceMono-Regular.ttf",
         "/usr/share/tretis/fonts/SpaceMono-Regular.ttf",
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
@@ -210,7 +217,8 @@ void renderText(render_context_t* rc, int x, int y, const char* text) {
 
     if (entry->texture == NULL) {
         SDL_Color color = {255, 255, 255, 255};
-        SDL_Surface* surface = TTF_RenderText_Blended(rc->font, entry->text, 0, color);
+        SDL_Surface* surface = TTF_RenderText_Blended(rc->font, entry->text,
+                strlen(entry->text), color);
         if (surface == NULL)
             return;
 

@@ -28,6 +28,7 @@ typedef struct {
     int sidebarWidth;
     int nextPieces;
     int fallDelay;
+    int softFallDelay;
     int minFallDelay;
     int speedupEvery;
     int speedupStep;

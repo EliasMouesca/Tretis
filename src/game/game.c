@@ -7,12 +7,17 @@
 #include <string.h>
 #include <time.h>
 
+#define MOVE_REPEAT_DELAY 80
+#define INPUT_REPEAT_INITIAL_DELAY 180
+
 typedef struct {
     int col;
     int row;
 } block_t;
 
 static int elapsedSeconds(const game_t* game);
+static void syncElapsedTime(game_t* game, uint64_t now);
+static void endGame(game_t* game);
 
 static const block_t PIECES[7][4][4] = {
     {
@@ -235,8 +240,7 @@ static void lockPiece(game_t* game) {
     spawnPiece(game);
 
     if (collides(game, game->row, game->col, game->rotation)) {
-        game->gameOver = true;
-        finalizeGame(game);
+        endGame(game);
     }
 }
 
@@ -304,8 +308,7 @@ static void holdPiece(game_t* game) {
         game->col = 3;
 
         if (collides(game, game->row, game->col, game->rotation)) {
-            game->gameOver = true;
-            finalizeGame(game);
+            endGame(game);
         }
     }
 
@@ -331,6 +334,7 @@ void initGame(game_t* game, tretis_config_t config) {
     game->generatedPieces = 0;
     game->stats = loadTretisStats(config.statsPath);
     game->startedAt = SDL_GetTicks();
+    game->lastTick = game->startedAt;
     refillNextQueue(game);
     spawnPiece(game);
 }
@@ -342,7 +346,17 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     }
 
     if (key == game->config.keyPause || key == SDLK_ESCAPE) {
+        uint64_t now = SDL_GetTicks();
+        bool wasPaused = game->paused;
+
+        syncElapsedTime(game, now);
         game->paused = !game->paused;
+        if (wasPaused) {
+            game->lastFall = now;
+            game->nextMoveAt = now + INPUT_REPEAT_INITIAL_DELAY;
+            game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+        }
+
         return;
     }
 
@@ -357,21 +371,60 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
 
     if (key == game->config.keyHold)
         holdPiece(game);
-    else if (key == game->config.keyLeft || key == SDLK_A)
+    else if (key == game->config.keyLeft || key == SDLK_A) {
+        game->movingLeft = true;
+        game->movingRight = false;
+        game->nextMoveAt = SDL_GetTicks() + INPUT_REPEAT_INITIAL_DELAY;
         movePiece(game, 0, -1);
-    else if (key == game->config.keyRight || key == SDLK_D)
+    }
+    else if (key == game->config.keyRight || key == SDLK_D) {
+        game->movingRight = true;
+        game->movingLeft = false;
+        game->nextMoveAt = SDL_GetTicks() + INPUT_REPEAT_INITIAL_DELAY;
         movePiece(game, 0, 1);
-    else if (key == game->config.keyDown || key == SDLK_S)
+    }
+    else if (key == game->config.keyDown || key == SDLK_S) {
+        game->softDropping = true;
+        uint64_t now = SDL_GetTicks();
+
+        game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+        game->lastFall = now;
         movePiece(game, 1, 0);
+    }
     else if (key == game->config.keyRotate || key == SDLK_W)
         rotatePiece(game);
     else if (key == game->config.keyDrop)
         hardDrop(game);
 }
 
+void releaseGameKey(game_t* game, SDL_Keycode key) {
+    if (key == game->config.keyLeft || key == SDLK_A)
+        game->movingLeft = false;
+    if (key == game->config.keyRight || key == SDLK_D)
+        game->movingRight = false;
+    if (key == game->config.keyDown || key == SDLK_S)
+        game->softDropping = false;
+}
+
 void updateGame(game_t* game, uint64_t now) {
+    syncElapsedTime(game, now);
+
     if (game->gameOver || game->paused)
         return;
+
+    if ((game->movingLeft || game->movingRight) &&
+            now >= game->nextMoveAt) {
+        game->nextMoveAt = now + MOVE_REPEAT_DELAY;
+        movePiece(game, 0, game->movingRight ? 1 : -1);
+    }
+
+    if (game->softDropping && now >= game->nextSoftFallAt) {
+        game->nextSoftFallAt = now + (uint64_t)game->config.softFallDelay;
+        game->lastFall = now;
+        movePiece(game, 1, 0);
+        if (game->gameOver)
+            return;
+    }
 
     int delay = game->config.fallDelay;
 
@@ -451,7 +504,25 @@ static void drawMiniPieceCentered(render_context_t* rc, int piece, int x, int y,
 }
 
 static int elapsedSeconds(const game_t* game) {
-    return (int)((SDL_GetTicks() - game->startedAt) / 1000);
+    return (int)(game->elapsedTime / 1000);
+}
+
+static void syncElapsedTime(game_t* game, uint64_t now) {
+    if (now < game->lastTick) {
+        game->lastTick = now;
+        return;
+    }
+
+    if (!game->paused && !game->gameOver)
+        game->elapsedTime += now - game->lastTick;
+
+    game->lastTick = now;
+}
+
+static void endGame(game_t* game) {
+    syncElapsedTime(game, SDL_GetTicks());
+    game->gameOver = true;
+    finalizeGame(game);
 }
 
 void finalizeGame(game_t* game) {

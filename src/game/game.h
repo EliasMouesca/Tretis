@@ -31,16 +31,24 @@ typedef struct {
     int lockedPieces;
     uint64_t startedAt;
     uint64_t lastFall;
+    uint64_t nextMoveAt;
+    uint64_t nextSoftFallAt;
+    uint64_t lastTick;
+    uint64_t elapsedTime;
     tretis_stats_t stats;
     tretis_config_t config;
     bool running;
     bool paused;
     bool gameOver;
     bool statsSaved;
+    bool movingLeft;
+    bool movingRight;
+    bool softDropping;
 } game_t;
 
 void initGame(game_t* game, tretis_config_t config);
 void handleGameKey(game_t* game, SDL_Keycode key);
+void releaseGameKey(game_t* game, SDL_Keycode key);
 void updateGame(game_t* game, uint64_t now);
 void drawGame(const game_t* game, render_context_t* rc);
 bool isGameRunning(const game_t* game);
