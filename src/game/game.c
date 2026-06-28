@@ -503,6 +503,10 @@ static void drawMiniPieceCentered(render_context_t* rc, int piece, int x, int y,
     drawMiniPiece(rc, piece, originX, originY, cellSize);
 }
 
+static int scaledHudValue(const game_t* game, int value) {
+    return value * game->config.blockSize / DEFAULT_BLOCK_SIZE;
+}
+
 static int elapsedSeconds(const game_t* game) {
     return (int)(game->elapsedTime / 1000);
 }
@@ -548,65 +552,73 @@ static void drawHud(const game_t* game, render_context_t* rc) {
     if (!game->config.showHud)
         return;
 
-    int x = game->config.cols * game->config.blockSize + 16;
-    int y = 18;
+    int line = renderTextLineSkip(rc);
+    int margin = scaledHudValue(game, 16);
+    int smallGap = scaledHudValue(game, 4);
+    int mediumGap = scaledHudValue(game, 10);
+    int miniCell = scaledHudValue(game, 12);
+    int nextBox = miniCell * 4;
+    int holdBox = nextBox + scaledHudValue(game, 8);
+    int x = game->config.cols * game->config.blockSize + margin;
+    int y = scaledHudValue(game, 18);
     uint64_t elapsed = (uint64_t)elapsedSeconds(game);
     char buffer[64];
 
     renderText(rc, x, y, "TRETIS");
-    y += 28;
+    y += line + mediumGap;
 
     if (!game->config.zenMode) {
         snprintf(buffer, sizeof(buffer), "score %d", game->score);
         renderText(rc, x, y, buffer);
-        y += 16;
+        y += line + smallGap;
 
         snprintf(buffer, sizeof(buffer), "high %d", game->stats.highScore);
         renderText(rc, x, y, buffer);
-        y += 16;
+        y += line + smallGap;
 
         snprintf(buffer, sizeof(buffer), "lines %d", game->lines);
         renderText(rc, x, y, buffer);
-        y += 16;
+        y += line + smallGap;
 
         snprintf(buffer, sizeof(buffer), "tetrises %d", game->tetrises);
         renderText(rc, x, y, buffer);
-        y += 16;
+        y += line + smallGap;
 
         snprintf(buffer, sizeof(buffer), "pieces %d", game->lockedPieces);
         renderText(rc, x, y, buffer);
-        y += 16;
+        y += line + smallGap;
     }
 
     snprintf(buffer, sizeof(buffer), "time %02llu:%02llu",
             (unsigned long long)(elapsed / 60),
             (unsigned long long)(elapsed % 60));
     renderText(rc, x, y, buffer);
-    y += 28;
+    y += line + mediumGap;
 
     renderText(rc, x, y, "next");
-    y += 18;
+    y += line + smallGap;
 
     int count = game->config.nextPieces;
     if (count > MAX_NEXT_PIECES)
         count = MAX_NEXT_PIECES;
 
     for (int i = 0; i < count; i++) {
-        drawMiniPieceCentered(rc, game->next[i], x, y, 48, 12);
-        y += 54;
+        drawMiniPieceCentered(rc, game->next[i], x, y, nextBox, miniCell);
+        y += nextBox + scaledHudValue(game, 6);
     }
 
-    y += 10;
+    y += mediumGap;
     renderText(rc, x, y, "hold");
-    y += 18;
+    y += line + smallGap;
 
-    renderHudBox(rc, x, y, 56, 56);
+    renderHudBox(rc, x, y, holdBox, holdBox);
 
     if (game->hasHeldPiece)
-        drawMiniPieceCentered(rc, game->heldPiece, x, y, 56, 12);
+        drawMiniPieceCentered(rc, game->heldPiece, x, y, holdBox, miniCell);
 
     if (game->gameOver)
-        renderText(rc, x, game->config.rows * game->config.blockSize - 28, "R restart");
+        renderText(rc, x, game->config.rows * game->config.blockSize -
+                line - mediumGap, "R restart");
 }
 
 void drawGame(const game_t* game, render_context_t* rc) {

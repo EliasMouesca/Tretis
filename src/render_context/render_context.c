@@ -28,6 +28,33 @@ struct render_context_t {
     int textCacheNext;
 };
 
+static int logicalWidth(tretis_config_t config) {
+    int width = config.cols * config.blockSize;
+
+    if (config.showHud)
+        width += config.sidebarWidth;
+
+    return width;
+}
+
+static int logicalHeight(tretis_config_t config) {
+    return config.rows * config.blockSize;
+}
+
+static int scaledValue(tretis_config_t config, int value) {
+    return value * config.blockSize / DEFAULT_BLOCK_SIZE;
+}
+
+static float scaledFontSize(tretis_config_t config) {
+    float scale = (float)config.blockSize / (float)DEFAULT_BLOCK_SIZE;
+    float size = (float)config.fontSize * scale;
+
+    if (size < 8.0f)
+        size = 8.0f;
+
+    return size;
+}
+
 static TTF_Font* openFont(tretis_config_t config) {
     char executableFont[FONT_PATH_MAX] = {0};
     const char* basePath = SDL_GetBasePath();
@@ -49,7 +76,7 @@ static TTF_Font* openFont(tretis_config_t config) {
         if (fallbacks[i][0] == '\0')
             continue;
 
-        TTF_Font* font = TTF_OpenFont(fallbacks[i], config.fontSize);
+        TTF_Font* font = TTF_OpenFont(fallbacks[i], scaledFontSize(config));
         if (font != NULL)
             return font;
     }
@@ -74,10 +101,8 @@ render_context_t* createRenderContext(tretis_config_t config) {
     rc->textCacheNext = 0;
     rc->font = openFont(config);
 
-    int width = config.cols * config.blockSize;
-    int height = config.rows * config.blockSize;
-    if (config.showHud)
-        width += config.sidebarWidth;
+    int width = logicalWidth(config);
+    int height = logicalHeight(config);
 
     rc->window = SDL_CreateWindow(WINDOW_TITLE, width, height, 0);
     if (rc->window == NULL) 
@@ -86,6 +111,10 @@ render_context_t* createRenderContext(tretis_config_t config) {
     rc->renderer = SDL_CreateRenderer(rc->window, NULL);
     if (rc->renderer == NULL)
         critical("Could not initialize SDL renderer: %s", SDL_GetError());
+
+    if (!SDL_SetRenderLogicalPresentation(rc->renderer, width, height,
+            SDL_LOGICAL_PRESENTATION_LETTERBOX))
+        critical("Could not set logical presentation: %s", SDL_GetError());
 
     return rc;
 }
@@ -241,9 +270,21 @@ void renderText(render_context_t* rc, int x, int y, const char* text) {
     SDL_RenderTexture(rc->renderer, entry->texture, NULL, &dst);
 }
 
+int renderTextLineSkip(render_context_t* rc) {
+    return TTF_GetFontLineSkip(rc->font);
+}
+
 void renderPauseOverlay(render_context_t* rc) {
     int boardW = rc->config.cols * rc->config.blockSize;
     int boardH = rc->config.rows * rc->config.blockSize;
+    int boxW = scaledValue(rc->config, 116);
+    int boxH = scaledValue(rc->config, 48);
+    int textX = scaledValue(rc->config, 31);
+    int textY = (boxH - renderTextLineSkip(rc)) / 2;
+
+    if (textY < 0)
+        textY = 0;
+
     SDL_FRect shade = {
         .x = 0.0f,
         .y = 0.0f,
@@ -251,10 +292,10 @@ void renderPauseOverlay(render_context_t* rc) {
         .h = (float)boardH
     };
     SDL_FRect box = {
-        .x = (float)(boardW / 2 - 58),
-        .y = (float)(boardH / 2 - 24),
-        .w = 116.0f,
-        .h = 48.0f
+        .x = (float)(boardW / 2 - boxW / 2),
+        .y = (float)(boardH / 2 - boxH / 2),
+        .w = (float)boxW,
+        .h = (float)boxH
     };
 
     SDL_SetRenderDrawBlendMode(rc->renderer, SDL_BLENDMODE_BLEND);
@@ -267,7 +308,7 @@ void renderPauseOverlay(render_context_t* rc) {
     SDL_RenderRect(rc->renderer, &box);
     SDL_SetRenderDrawBlendMode(rc->renderer, SDL_BLENDMODE_NONE);
 
-    renderText(rc, (int)box.x + 31, (int)box.y + 14, "PAUSE");
+    renderText(rc, (int)box.x + textX, (int)box.y + textY, "PAUSE");
 }
 
 void renderEnd(render_context_t* rc) {
