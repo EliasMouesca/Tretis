@@ -61,3 +61,9 @@ recordings for visible SDL/rendering changes.
 Before editing, check for uncommitted user work and avoid reverting unrelated
 changes. Keep generated outputs out of commits, and prefer scoped changes that
 match the existing module layout.
+
+## Product Direction
+
+Keep the game quiet and low-friction: it is meant to be playable while thinking,
+not to demand full attention. Avoid adding sound, flashy animation, heavy visual
+effects, or features that make the loop feel busy unless explicitly requested.

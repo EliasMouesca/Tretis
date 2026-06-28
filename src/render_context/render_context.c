@@ -233,6 +233,35 @@ void renderText(render_context_t* rc, int x, int y, const char* text) {
     SDL_RenderTexture(rc->renderer, entry->texture, NULL, &dst);
 }
 
+void renderPauseOverlay(render_context_t* rc) {
+    int boardW = rc->config.cols * rc->config.blockSize;
+    int boardH = rc->config.rows * rc->config.blockSize;
+    SDL_FRect shade = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .w = (float)boardW,
+        .h = (float)boardH
+    };
+    SDL_FRect box = {
+        .x = (float)(boardW / 2 - 58),
+        .y = (float)(boardH / 2 - 24),
+        .w = 116.0f,
+        .h = 48.0f
+    };
+
+    SDL_SetRenderDrawBlendMode(rc->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(rc->renderer, 150, 150, 150, 110);
+    SDL_RenderFillRect(rc->renderer, &shade);
+
+    SDL_SetRenderDrawColor(rc->renderer, 28, 28, 32, 230);
+    SDL_RenderFillRect(rc->renderer, &box);
+    SDL_SetRenderDrawColor(rc->renderer, 95, 95, 105, 255);
+    SDL_RenderRect(rc->renderer, &box);
+    SDL_SetRenderDrawBlendMode(rc->renderer, SDL_BLENDMODE_NONE);
+
+    renderText(rc, (int)box.x + 31, (int)box.y + 14, "PAUSE");
+}
+
 void renderEnd(render_context_t* rc) {
     SDL_RenderPresent(rc->renderer);
 }

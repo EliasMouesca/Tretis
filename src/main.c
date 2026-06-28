@@ -59,11 +59,18 @@ static void printHelp(const char* program) {
     printf("  --help                 Show this help and exit\n");
     printf("  --hud                  Show the right HUD panel (default)\n");
     printf("  --no-hud               Hide the right HUD panel\n");
+    printf("  --zen                  Hide score/highscore details in the HUD\n");
+    printf("  --no-zen               Show full HUD stats (default)\n");
     printf("  --ghost                Show the landing shadow (default)\n");
     printf("  --no-ghost             Hide the landing shadow\n");
     printf("  --next N               Number of next pieces to show, 0-%d (default %d)\n", MAX_NEXT_PIECES, DEFAULT_NEXT_PIECES);
     printf("  --block-size N         Pixel size for each board block (default %d)\n", DEFAULT_BLOCK_SIZE);
     printf("  --fall-delay N         Milliseconds between automatic falls (default 500)\n");
+    printf("  --speedup              Slowly increase fall speed over time (default)\n");
+    printf("  --no-speedup           Keep fall speed constant\n");
+    printf("  --speedup-every N      Seconds between tiny speed increases (default 45)\n");
+    printf("  --speedup-step N       Milliseconds removed each speed increase (default 15)\n");
+    printf("  --min-fall-delay N     Fastest automatic fall delay in ms (default 180)\n");
     printf("  --randomizer NAME      Piece generator: 7bag, uniform, tgm, 35bag (default %s)\n",
             randomizerName(defaults.randomizer));
     printf("  --sidebar-width N      Width of the right HUD panel (default %d)\n", DEFAULT_SIDEBAR_WIDTH);
@@ -72,6 +79,10 @@ static void printHelp(const char* program) {
     printf("  --highscore-file PATH  Alias for --stats-file\n");
     printf("  --font PATH            TTF font file for HUD text\n");
     printf("  --font-size N          HUD font size in pixels (default 14)\n");
+    printf("\n");
+    printf("Preferences are loaded from and saved to $HOME/.config/tretis/config.\n");
+    printf("Key bindings can be edited there with key_left, key_right, key_down,\n");
+    printf("key_rotate, key_drop, key_hold, key_restart, key_quit, and key_pause.\n");
     printf("\n");
     printf("Controls:\n");
     printf("  Left/Right or A/D      Move\n");
@@ -84,8 +95,10 @@ static void printHelp(const char* program) {
 }
 
 static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
-    tretis_config_t config = defaultTretisConfig();
+    tretis_config_t config = sensibleTretisConfig();
     *printStats = false;
+
+    loadTretisConfig(&config, config.configPath);
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -97,6 +110,10 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
             config.showHud = false;
         } else if (strcmp(argv[i], "--hud") == 0) {
             config.showHud = true;
+        } else if (strcmp(argv[i], "--zen") == 0) {
+            config.zenMode = true;
+        } else if (strcmp(argv[i], "--no-zen") == 0) {
+            config.zenMode = false;
         } else if (strcmp(argv[i], "--no-ghost") == 0) {
             config.showGhost = false;
         } else if (strcmp(argv[i], "--ghost") == 0) {
@@ -107,6 +124,16 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
             config.blockSize = readIntArg(argc, argv, &i, config.blockSize);
         } else if (strcmp(argv[i], "--fall-delay") == 0) {
             config.fallDelay = readIntArg(argc, argv, &i, config.fallDelay);
+        } else if (strcmp(argv[i], "--speedup") == 0) {
+            config.speedup = true;
+        } else if (strcmp(argv[i], "--no-speedup") == 0) {
+            config.speedup = false;
+        } else if (strcmp(argv[i], "--speedup-every") == 0) {
+            config.speedupEvery = readIntArg(argc, argv, &i, config.speedupEvery);
+        } else if (strcmp(argv[i], "--speedup-step") == 0) {
+            config.speedupStep = readIntArg(argc, argv, &i, config.speedupStep);
+        } else if (strcmp(argv[i], "--min-fall-delay") == 0) {
+            config.minFallDelay = readIntArg(argc, argv, &i, config.minFallDelay);
         } else if (strcmp(argv[i], "--randomizer") == 0) {
             const char* value = readStringArg(argc, argv, &i, randomizerName(config.randomizer));
             config.randomizer = parseRandomizer(value, config.randomizer);
@@ -135,6 +162,14 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
         config.blockSize = 8;
     if (config.fallDelay < 50)
         config.fallDelay = 50;
+    if (config.minFallDelay < 50)
+        config.minFallDelay = 50;
+    if (config.minFallDelay > config.fallDelay)
+        config.minFallDelay = config.fallDelay;
+    if (config.speedupEvery < 1)
+        config.speedupEvery = 1;
+    if (config.speedupStep < 0)
+        config.speedupStep = 0;
     if (config.sidebarWidth < 100)
         config.sidebarWidth = 100;
     if (config.fontSize < 8)
@@ -178,6 +213,7 @@ int main(int argc, char* argv[]) {
     }
 
     finalizeGame(&game);
+    saveTretisConfig(&config, config.configPath);
     destroyRenderContext(&rc);
 
     return 0;

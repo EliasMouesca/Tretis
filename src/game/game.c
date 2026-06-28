@@ -12,6 +12,8 @@ typedef struct {
     int row;
 } block_t;
 
+static int elapsedSeconds(const game_t* game);
+
 static const block_t PIECES[7][4][4] = {
     {
         {{0, 1}, {1, 1}, {2, 1}, {3, 1}},
@@ -333,47 +335,55 @@ void initGame(game_t* game, tretis_config_t config) {
     spawnPiece(game);
 }
 
-void handleGameKey(game_t* game, int key) {
-    switch (key) {
-        case SDLK_Q:
-            game->running = false;
-            break;
-        case SDLK_E:
-            holdPiece(game);
-            break;
-        case SDLK_R:
-            finalizeGame(game);
-            initGame(game, game->config);
-            break;
-        case SDLK_LEFT:
-        case SDLK_A:
-            movePiece(game, 0, -1);
-            break;
-        case SDLK_RIGHT:
-        case SDLK_D:
-            movePiece(game, 0, 1);
-            break;
-        case SDLK_DOWN:
-        case SDLK_S:
-            movePiece(game, 1, 0);
-            break;
-        case SDLK_UP:
-        case SDLK_W:
-            rotatePiece(game);
-            break;
-        case SDLK_SPACE:
-            hardDrop(game);
-            break;
-        default:
-            break;
+void handleGameKey(game_t* game, SDL_Keycode key) {
+    if (key == game->config.keyQuit) {
+        game->running = false;
+        return;
     }
+
+    if (key == game->config.keyPause || key == SDLK_ESCAPE) {
+        game->paused = !game->paused;
+        return;
+    }
+
+    if (key == game->config.keyRestart) {
+        finalizeGame(game);
+        initGame(game, game->config);
+        return;
+    }
+
+    if (game->paused)
+        return;
+
+    if (key == game->config.keyHold)
+        holdPiece(game);
+    else if (key == game->config.keyLeft || key == SDLK_A)
+        movePiece(game, 0, -1);
+    else if (key == game->config.keyRight || key == SDLK_D)
+        movePiece(game, 0, 1);
+    else if (key == game->config.keyDown || key == SDLK_S)
+        movePiece(game, 1, 0);
+    else if (key == game->config.keyRotate || key == SDLK_W)
+        rotatePiece(game);
+    else if (key == game->config.keyDrop)
+        hardDrop(game);
 }
 
 void updateGame(game_t* game, uint64_t now) {
-    if (game->gameOver)
+    if (game->gameOver || game->paused)
         return;
 
-    if (now - game->lastFall < (uint64_t)game->config.fallDelay)
+    int delay = game->config.fallDelay;
+
+    if (game->config.speedup && game->config.speedupEvery > 0) {
+        int elapsed = elapsedSeconds(game);
+        delay -= (elapsed / game->config.speedupEvery) * game->config.speedupStep;
+
+        if (delay < game->config.minFallDelay)
+            delay = game->config.minFallDelay;
+    }
+
+    if (now - game->lastFall < (uint64_t)delay)
         return;
 
     game->lastFall = now;
@@ -475,25 +485,27 @@ static void drawHud(const game_t* game, render_context_t* rc) {
     renderText(rc, x, y, "TRETIS");
     y += 28;
 
-    snprintf(buffer, sizeof(buffer), "score %d", game->score);
-    renderText(rc, x, y, buffer);
-    y += 16;
+    if (!game->config.zenMode) {
+        snprintf(buffer, sizeof(buffer), "score %d", game->score);
+        renderText(rc, x, y, buffer);
+        y += 16;
 
-    snprintf(buffer, sizeof(buffer), "high %d", game->stats.highScore);
-    renderText(rc, x, y, buffer);
-    y += 16;
+        snprintf(buffer, sizeof(buffer), "high %d", game->stats.highScore);
+        renderText(rc, x, y, buffer);
+        y += 16;
 
-    snprintf(buffer, sizeof(buffer), "lines %d", game->lines);
-    renderText(rc, x, y, buffer);
-    y += 16;
+        snprintf(buffer, sizeof(buffer), "lines %d", game->lines);
+        renderText(rc, x, y, buffer);
+        y += 16;
 
-    snprintf(buffer, sizeof(buffer), "tetrises %d", game->tetrises);
-    renderText(rc, x, y, buffer);
-    y += 16;
+        snprintf(buffer, sizeof(buffer), "tetrises %d", game->tetrises);
+        renderText(rc, x, y, buffer);
+        y += 16;
 
-    snprintf(buffer, sizeof(buffer), "pieces %d", game->lockedPieces);
-    renderText(rc, x, y, buffer);
-    y += 16;
+        snprintf(buffer, sizeof(buffer), "pieces %d", game->lockedPieces);
+        renderText(rc, x, y, buffer);
+        y += 16;
+    }
 
     snprintf(buffer, sizeof(buffer), "time %02llu:%02llu",
             (unsigned long long)(elapsed / 60),
@@ -546,6 +558,9 @@ void drawGame(const game_t* game, render_context_t* rc) {
     }
 
     drawHud(game, rc);
+
+    if (game->paused)
+        renderPauseOverlay(rc);
 }
 
 bool isGameRunning(const game_t* game) {
