@@ -7,19 +7,19 @@ This is a small C/SDL3 project. Source files live under `src/`, with
 example `src/grid/grid.c` with `src/grid/grid.h`, `src/log/log.c`, and
 `src/render_context/render_context.c`.
 
-Build artifacts are generated into `obj/`, and the executable is `main`. These
+Build artifacts are generated into `obj/`, and the executable is `tretis`. These
 are disposable outputs and should not be committed.
 
 ## Build, Test, and Development Commands
 
-- `make`: compiles all `.c` files under `src/` into `main` using `gcc`,
+- `make`: compiles all `.c` files under `src/` into `tretis` using `gcc`,
   `pkg-config`, SDL3, and SDL3_ttf.
 - `make test`: builds and runs module tests discovered as
   `src/<module>/<module>_test.c`, wrapping each test with Valgrind.
-- `make test-run`: runs `main` under Valgrind with `--block-size 7`.
+- `make test-run`: runs `tretis` under Valgrind with `--block-size 7`.
 - `make test-stress`: runs the app with fullscreen, delay, FPS, and party-mode
   flags for manual stress testing.
-- `make clean`: removes `obj/`, `main`, and generated test binaries.
+- `make clean`: removes `obj/`, `tretis`, and generated test binaries.
 
 Install SDL3 and SDL3_ttf development packages so the `pkg-config` calls in the
 `Makefile` resolve before building.

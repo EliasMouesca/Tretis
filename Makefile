@@ -7,7 +7,7 @@ VALGRINDFLAGS := --tool=memcheck --leak-check=yes --track-origins=yes --num-call
 PWD := $(shell pwd)
 SRC_DIR := src
 OBJ_DIR := obj
-TARGET  := main
+TARGET  := tretis
 PREFIX  ?= /usr
 
 SRCS := $(shell find $(SRC_DIR) -name '*.c')

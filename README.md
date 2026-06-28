@@ -29,7 +29,7 @@ Install SDL3 and SDL3_ttf development packages, then run:
 
 ```sh
 make
-./main
+./tretis
 ```
 
 Optional install target:
@@ -84,5 +84,5 @@ make test
 make clean
 ```
 
-Generated files such as `main`, `obj/`, package outputs, and runtime config are
+Generated files such as `tretis`, `obj/`, package outputs, and runtime config are
 ignored by Git.
