@@ -126,6 +126,8 @@ tretis_config_t sensibleTretisConfig() {
 
         if (maxBlockByWidth > 0 && blockSize > maxBlockByWidth)
             blockSize = maxBlockByWidth;
+        if (blockSize > DEFAULT_BLOCK_SIZE)
+            blockSize = DEFAULT_BLOCK_SIZE;
         if (blockSize < 8)
             blockSize = 8;
 
