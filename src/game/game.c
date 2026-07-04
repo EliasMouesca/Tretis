@@ -258,11 +258,11 @@ static void movePiece(game_t* game, int drow, int dcol) {
         lockPiece(game);
 }
 
-static void rotatePiece(game_t* game) {
+static void rotatePiece(game_t* game, int direction) {
     if (game->gameOver)
         return;
 
-    int next = (game->rotation + 1) % 4;
+    int next = (game->rotation + direction + 4) % 4;
 
     if (!collides(game, game->row, game->col, next)) {
         game->rotation = next;
@@ -369,7 +369,7 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (game->paused)
         return;
 
-    if (key == game->config.keyHold)
+    if (key == game->config.keyHold || key == SDLK_C)
         holdPiece(game);
     else if (key == game->config.keyLeft || key == SDLK_A) {
         game->movingLeft = true;
@@ -391,8 +391,10 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         game->lastFall = now;
         movePiece(game, 1, 0);
     }
-    else if (key == game->config.keyRotate || key == SDLK_W)
-        rotatePiece(game);
+    else if (key == game->config.keyRotateLeft)
+        rotatePiece(game, -1);
+    else if (key == game->config.keyRotate || key == SDLK_W || key == game->config.keyRotateRight)
+        rotatePiece(game, 1);
     else if (key == game->config.keyDrop)
         hardDrop(game);
 }

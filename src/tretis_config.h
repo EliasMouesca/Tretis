@@ -42,6 +42,8 @@ typedef struct {
     SDL_Keycode keyRight;
     SDL_Keycode keyDown;
     SDL_Keycode keyRotate;
+    SDL_Keycode keyRotateLeft;
+    SDL_Keycode keyRotateRight;
     SDL_Keycode keyDrop;
     SDL_Keycode keyHold;
     SDL_Keycode keyRestart;

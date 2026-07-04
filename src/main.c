@@ -88,9 +88,10 @@ static void printHelp(const char* program) {
     printf("Controls:\n");
     printf("  Left/Right or A/D      Move\n");
     printf("  Down or S              Soft drop\n");
-    printf("  Up or W                Rotate\n");
+    printf("  Up/W or X              Rotate right\n");
+    printf("  Z                      Rotate left\n");
     printf("  Space                  Hard drop\n");
-    printf("  E                      Hold/swap current piece\n");
+    printf("  E or C                 Hold/swap current piece\n");
     printf("  R                      Restart\n");
     printf("  Q                      Quit\n");
 }

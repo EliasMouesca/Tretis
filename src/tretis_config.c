@@ -61,6 +61,8 @@ tretis_config_t defaultTretisConfig() {
         .keyRight = SDLK_RIGHT,
         .keyDown = SDLK_DOWN,
         .keyRotate = SDLK_UP,
+        .keyRotateLeft = SDLK_Z,
+        .keyRotateRight = SDLK_X,
         .keyDrop = SDLK_SPACE,
         .keyHold = SDLK_E,
         .keyRestart = SDLK_R,
@@ -137,6 +139,8 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         else if (strcmp(key, "key_right") == 0) config->keyRight = parseKeyName(value, config->keyRight);
         else if (strcmp(key, "key_down") == 0) config->keyDown = parseKeyName(value, config->keyDown);
         else if (strcmp(key, "key_rotate") == 0) config->keyRotate = parseKeyName(value, config->keyRotate);
+        else if (strcmp(key, "key_rotate_left") == 0) config->keyRotateLeft = parseKeyName(value, config->keyRotateLeft);
+        else if (strcmp(key, "key_rotate_right") == 0) config->keyRotateRight = parseKeyName(value, config->keyRotateRight);
         else if (strcmp(key, "key_drop") == 0) config->keyDrop = parseKeyName(value, config->keyDrop);
         else if (strcmp(key, "key_hold") == 0) config->keyHold = parseKeyName(value, config->keyHold);
         else if (strcmp(key, "key_restart") == 0) config->keyRestart = parseKeyName(value, config->keyRestart);
