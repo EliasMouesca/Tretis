@@ -11,6 +11,7 @@
 
 #define WINDOW_TITLE "TRETIS"
 #define TEXT_CACHE_SIZE 64
+#define ICON_PATH_MAX 512
 
 typedef struct {
     char text[64];
@@ -85,6 +86,37 @@ static TTF_Font* openFont(tretis_config_t config) {
     return NULL;
 }
 
+static void setWindowIcon(SDL_Window* window) {
+    char executableIcon[ICON_PATH_MAX] = {0};
+    const char* basePath = SDL_GetBasePath();
+
+    if (basePath != NULL)
+        snprintf(executableIcon, sizeof(executableIcon), "%sassets/tretis.bmp", basePath);
+
+    const char* fallbacks[] = {
+        executableIcon,
+        "./assets/tretis.bmp",
+        "/usr/share/tretis/assets/tretis.bmp"
+    };
+
+    for (size_t i = 0; i < sizeof(fallbacks) / sizeof(fallbacks[0]); i++) {
+        if (fallbacks[i][0] == '\0')
+            continue;
+
+        SDL_Surface* icon = SDL_LoadBMP(fallbacks[i]);
+        if (icon == NULL)
+            continue;
+
+        if (!SDL_SetWindowIcon(window, icon))
+            warn("Could not set window icon: %s", SDL_GetError());
+
+        SDL_DestroySurface(icon);
+        return;
+    }
+
+    warn("Could not load window icon: %s", SDL_GetError());
+}
+
 render_context_t* createRenderContext(tretis_config_t config) {
     if (!SDL_Init(SDL_INIT_VIDEO))
         critical("Could not initialize SDL: %s", SDL_GetError());
@@ -107,6 +139,8 @@ render_context_t* createRenderContext(tretis_config_t config) {
     rc->window = SDL_CreateWindow(WINDOW_TITLE, width, height, 0);
     if (rc->window == NULL) 
         critical("Could not initialize SDL window: %s", SDL_GetError());
+
+    setWindowIcon(rc->window);
 
     rc->renderer = SDL_CreateRenderer(rc->window, NULL);
     if (rc->renderer == NULL)

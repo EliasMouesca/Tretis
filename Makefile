@@ -53,6 +53,9 @@ clean:
 install: $(TARGET)
 	install -Dm755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/tretis
 	install -Dm644 fonts/SpaceMono-Regular.ttf $(DESTDIR)$(PREFIX)/share/tretis/fonts/SpaceMono-Regular.ttf
+	install -Dm644 assets/tretis.bmp $(DESTDIR)$(PREFIX)/share/tretis/assets/tretis.bmp
+	install -Dm644 assets/tretis-256.png $(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps/tretis.png
+	install -Dm644 assets/tretis.desktop $(DESTDIR)$(PREFIX)/share/applications/tretis.desktop
 
 .PHONY: all clean install test test-*
 

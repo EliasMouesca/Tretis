@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Tretis
+Comment=Small SDL3 Tetris implementation
+Exec=tretis
+Icon=tretis
+Terminal=false
+Categories=Game;
