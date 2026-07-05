@@ -165,6 +165,7 @@ static void spawnPiece(game_t* game) {
     game->row = 0;
     game->col = 3;
     game->swappedHeldThisTurn = false;
+    game->grounded = false;
 }
 
 static bool collides(const game_t* game, int row, int col, int rotation) {
@@ -225,6 +226,7 @@ static void addLineScore(game_t* game, int cleared) {
 
 static void lockPiece(game_t* game) {
     const block_t* shape = PIECES[game->piece][game->rotation];
+    uint64_t now = SDL_GetTicks();
 
     for (int i = 0; i < 4; i++) {
         int r = game->row + shape[i].row;
@@ -235,6 +237,8 @@ static void lockPiece(game_t* game) {
         }
     }
 
+    // So the soft fall doesn't feel like it gets directly transfered to the next piece (avoids unwanted softdrops)
+    game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
     game->lockedPieces++;
     addLineScore(game, clearLines(game));
     spawnPiece(game);
@@ -242,9 +246,13 @@ static void lockPiece(game_t* game) {
     if (collides(game, game->row, game->col, game->rotation)) {
         endGame(game);
     }
+
+    game->grounded = false;
 }
 
 static void movePiece(game_t* game, int drow, int dcol) {
+    uint64_t now = SDL_GetTicks();
+
     if (game->gameOver)
         return;
 
@@ -254,15 +262,20 @@ static void movePiece(game_t* game, int drow, int dcol) {
         return;
     }
 
-    if (drow > 0)
-        lockPiece(game);
+    if (drow > 0) {
+        if(!game->grounded){
+            game->groundedAt = now;
+            game->grounded = true;
+        }
+        return;
+    }
 }
 
-static void rotatePiece(game_t* game) {
+static void rotatePiece(game_t* game, int direction) {
     if (game->gameOver)
         return;
 
-    int next = (game->rotation + 1) % 4;
+    int next = (game->rotation + direction + 4) % 4;
 
     if (!collides(game, game->row, game->col, next)) {
         game->rotation = next;
@@ -340,13 +353,14 @@ void initGame(game_t* game, tretis_config_t config) {
 }
 
 void handleGameKey(game_t* game, SDL_Keycode key) {
+    uint64_t now = SDL_GetTicks();
+
     if (key == game->config.keyQuit) {
         game->running = false;
         return;
     }
 
     if (key == game->config.keyPause || key == SDLK_ESCAPE) {
-        uint64_t now = SDL_GetTicks();
         bool wasPaused = game->paused;
 
         syncElapsedTime(game, now);
@@ -354,7 +368,7 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         if (wasPaused) {
             game->lastFall = now;
             game->nextMoveAt = now + INPUT_REPEAT_INITIAL_DELAY;
-            game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+            game->nextSoftFallAt = now + MOVE_REPEAT_DELAY;
         }
 
         return;
@@ -369,7 +383,10 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (game->paused)
         return;
 
-    if (key == game->config.keyHold)
+    // Any non-disrupting key refreshes grounded timer
+    game->lastLockDelayedAt = now;
+
+    if (key == game->config.keyHold || key == SDLK_C)
         holdPiece(game);
     else if (key == game->config.keyLeft || key == SDLK_A) {
         game->movingLeft = true;
@@ -385,14 +402,17 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     }
     else if (key == game->config.keyDown || key == SDLK_S) {
         game->softDropping = true;
-        uint64_t now = SDL_GetTicks();
 
-        game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+        game->nextSoftFallAt = now + MOVE_REPEAT_DELAY;
         game->lastFall = now;
         movePiece(game, 1, 0);
     }
-    else if (key == game->config.keyRotate || key == SDLK_W)
-        rotatePiece(game);
+    else if (key == game->config.keyRotateLeft) {
+        rotatePiece(game, -1);
+    }
+    else if (key == game->config.keyRotate || key == SDLK_W || key == game->config.keyRotateRight) {
+        rotatePiece(game, 1);
+    }
     else if (key == game->config.keyDrop)
         hardDrop(game);
 }
@@ -409,11 +429,14 @@ void releaseGameKey(game_t* game, SDL_Keycode key) {
 void updateGame(game_t* game, uint64_t now) {
     syncElapsedTime(game, now);
 
+    int delay = game->config.fallDelay;
+    int lockDelay = game->config.lockDelay;
+    int maxLockDelay = game->config.maxLockDelay;
+
     if (game->gameOver || game->paused)
         return;
 
-    if ((game->movingLeft || game->movingRight) &&
-            now >= game->nextMoveAt) {
+    if ((game->movingLeft || game->movingRight) && now >= game->nextMoveAt) {
         game->nextMoveAt = now + MOVE_REPEAT_DELAY;
         movePiece(game, 0, game->movingRight ? 1 : -1);
     }
@@ -426,7 +449,6 @@ void updateGame(game_t* game, uint64_t now) {
             return;
     }
 
-    int delay = game->config.fallDelay;
 
     if (game->config.speedup && game->config.speedupEvery > 0) {
         int elapsed = elapsedSeconds(game);
@@ -436,11 +458,19 @@ void updateGame(game_t* game, uint64_t now) {
             delay = game->config.minFallDelay;
     }
 
-    if (now - game->lastFall < (uint64_t)delay)
+    if (game->grounded && 
+        (now - game->lastLockDelayedAt > (uint64_t)lockDelay || now - game->groundedAt > (uint64_t)maxLockDelay)){
+        lockPiece(game);
         return;
+    }
 
-    game->lastFall = now;
-    movePiece(game, 1, 0);
+    if (now - game->lastFall > (uint64_t)delay){
+        game->lastFall = now;
+        movePiece(game, 1, 0);
+        return;
+    }
+
+    return;
 }
 
 static int ghostRow(const game_t* game) {

@@ -28,6 +28,8 @@ typedef struct {
     int sidebarWidth;
     int nextPieces;
     int fallDelay;
+    int lockDelay;      // How much does key press (move and rotate) increases the lock delay
+    int maxLockDelay;   // How much a lock can be delayed
     int softFallDelay;
     int minFallDelay;
     int speedupEvery;
@@ -42,6 +44,8 @@ typedef struct {
     SDL_Keycode keyRight;
     SDL_Keycode keyDown;
     SDL_Keycode keyRotate;
+    SDL_Keycode keyRotateLeft;
+    SDL_Keycode keyRotateRight;
     SDL_Keycode keyDrop;
     SDL_Keycode keyHold;
     SDL_Keycode keyRestart;

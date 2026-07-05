@@ -35,6 +35,8 @@ typedef struct {
     uint64_t nextSoftFallAt;
     uint64_t lastTick;
     uint64_t elapsedTime;
+    uint64_t groundedAt;            // When did the piece touch the ground?
+    uint64_t lastLockDelayedAt;     // When was the last time a key was press and the lock got delayed?
     tretis_stats_t stats;
     tretis_config_t config;
     bool running;
@@ -44,6 +46,7 @@ typedef struct {
     bool movingLeft;
     bool movingRight;
     bool softDropping;
+    bool grounded; 
 } game_t;
 
 void initGame(game_t* game, tretis_config_t config);

@@ -71,9 +71,28 @@ static void testMoveKeysSetAndReleaseHeldState() {
     assert(!game.softDropping);
 }
 
+static void testZXCControlAliases() {
+    game_t game;
+
+    initGame(&game, testConfig());
+
+    handleGameKey(&game, SDLK_Z);
+    assert(game.rotation == 3);
+
+    handleGameKey(&game, SDLK_X);
+    assert(game.rotation == 0);
+
+    int firstPiece = game.piece;
+    handleGameKey(&game, SDLK_C);
+    assert(game.hasHeldPiece);
+    assert(game.heldPiece == firstPiece);
+    assert(game.swappedHeldThisTurn);
+}
+
 int main() {
     testInitGameSetsPlayableDefaults();
     testElapsedTimeOnlyAccumulatesWhileActive();
     testMoveKeysSetAndReleaseHeldState();
+    testZXCControlAliases();
     return 0;
 }

@@ -47,6 +47,8 @@ tretis_config_t defaultTretisConfig() {
         .sidebarWidth = DEFAULT_SIDEBAR_WIDTH,
         .nextPieces = DEFAULT_NEXT_PIECES,
         .fallDelay = 500,
+        .lockDelay = 0,
+        .maxLockDelay = 0,
         .softFallDelay = 45,
         .minFallDelay = 180,
         .speedupEvery = 45,
@@ -61,6 +63,8 @@ tretis_config_t defaultTretisConfig() {
         .keyRight = SDLK_RIGHT,
         .keyDown = SDLK_DOWN,
         .keyRotate = SDLK_UP,
+        .keyRotateLeft = SDLK_Z,
+        .keyRotateRight = SDLK_X,
         .keyDrop = SDLK_SPACE,
         .keyHold = SDLK_E,
         .keyRestart = SDLK_R,
@@ -68,6 +72,7 @@ tretis_config_t defaultTretisConfig() {
         .keyPause = SDLK_P
     };
 
+    // sets default stats and config file path in config.{statsPath; configPath}
     makeDefaultRuntimePath(config.statsPath, sizeof(config.statsPath), "stats");
     makeDefaultRuntimePath(config.configPath, sizeof(config.configPath), "config");
     snprintf(config.fontPath, sizeof(config.fontPath), "./fonts/SpaceMono-Regular.ttf");
@@ -137,11 +142,15 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         else if (strcmp(key, "key_right") == 0) config->keyRight = parseKeyName(value, config->keyRight);
         else if (strcmp(key, "key_down") == 0) config->keyDown = parseKeyName(value, config->keyDown);
         else if (strcmp(key, "key_rotate") == 0) config->keyRotate = parseKeyName(value, config->keyRotate);
+        else if (strcmp(key, "key_rotate_left") == 0) config->keyRotateLeft = parseKeyName(value, config->keyRotateLeft);
+        else if (strcmp(key, "key_rotate_right") == 0) config->keyRotateRight = parseKeyName(value, config->keyRotateRight);
         else if (strcmp(key, "key_drop") == 0) config->keyDrop = parseKeyName(value, config->keyDrop);
         else if (strcmp(key, "key_hold") == 0) config->keyHold = parseKeyName(value, config->keyHold);
         else if (strcmp(key, "key_restart") == 0) config->keyRestart = parseKeyName(value, config->keyRestart);
         else if (strcmp(key, "key_quit") == 0) config->keyQuit = parseKeyName(value, config->keyQuit);
         else if (strcmp(key, "key_pause") == 0) config->keyPause = parseKeyName(value, config->keyPause);
+        else if (strcmp(key, "lock_delay") == 0) config->lockDelay = atoi(value);
+        else if (strcmp(key, "max_lock_delay") == 0) config->maxLockDelay = atoi(value);
     }
 
     fclose(file);
@@ -173,10 +182,14 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "key_right %s\n", keyName(config->keyRight));
     fprintf(file, "key_down %s\n", keyName(config->keyDown));
     fprintf(file, "key_rotate %s\n", keyName(config->keyRotate));
+    fprintf(file, "key_rotate_left %s\n", keyName(config->keyRotateLeft));
+    fprintf(file, "key_rotate_right %s\n", keyName(config->keyRotateRight));
     fprintf(file, "key_drop %s\n", keyName(config->keyDrop));
     fprintf(file, "key_hold %s\n", keyName(config->keyHold));
     fprintf(file, "key_restart %s\n", keyName(config->keyRestart));
     fprintf(file, "key_quit %s\n", keyName(config->keyQuit));
     fprintf(file, "key_pause %s\n", keyName(config->keyPause));
+    fprintf(file, "lock_delay %d\n", config->lockDelay);
+    fprintf(file, "max_lock_delay %d\n", config->maxLockDelay);
     fclose(file);
 }
