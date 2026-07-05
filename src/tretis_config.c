@@ -70,6 +70,7 @@ tretis_config_t defaultTretisConfig() {
         .keyPause = SDLK_P
     };
 
+    // sets default stats and config file path in config.{statsPath; configPath}
     makeDefaultRuntimePath(config.statsPath, sizeof(config.statsPath), "stats");
     makeDefaultRuntimePath(config.configPath, sizeof(config.configPath), "config");
     snprintf(config.fontPath, sizeof(config.fontPath), "./fonts/SpaceMono-Regular.ttf");

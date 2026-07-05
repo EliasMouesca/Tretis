@@ -354,7 +354,7 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         if (wasPaused) {
             game->lastFall = now;
             game->nextMoveAt = now + INPUT_REPEAT_INITIAL_DELAY;
-            game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+            game->nextSoftFallAt = now + MOVE_REPEAT_DELAY;
         }
 
         return;
@@ -387,7 +387,7 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         game->softDropping = true;
         uint64_t now = SDL_GetTicks();
 
-        game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+        game->nextSoftFallAt = now + MOVE_REPEAT_DELAY;
         game->lastFall = now;
         movePiece(game, 1, 0);
     }
@@ -414,8 +414,7 @@ void updateGame(game_t* game, uint64_t now) {
     if (game->gameOver || game->paused)
         return;
 
-    if ((game->movingLeft || game->movingRight) &&
-            now >= game->nextMoveAt) {
+    if ((game->movingLeft || game->movingRight) && now >= game->nextMoveAt) {
         game->nextMoveAt = now + MOVE_REPEAT_DELAY;
         movePiece(game, 0, game->movingRight ? 1 : -1);
     }
