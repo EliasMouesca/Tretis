@@ -28,6 +28,8 @@ typedef struct {
     int sidebarWidth;
     int nextPieces;
     int fallDelay;
+    int lockDelay;      // How much does key press (move and rotate) increases the lock delay
+    int maxLockDelay;   // How much a lock can be delayed
     int softFallDelay;
     int minFallDelay;
     int speedupEvery;
