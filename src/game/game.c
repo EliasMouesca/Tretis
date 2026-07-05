@@ -225,6 +225,7 @@ static void addLineScore(game_t* game, int cleared) {
 
 static void lockPiece(game_t* game) {
     const block_t* shape = PIECES[game->piece][game->rotation];
+    uint64_t now = SDL_GetTicks();
 
     for (int i = 0; i < 4; i++) {
         int r = game->row + shape[i].row;
@@ -235,6 +236,8 @@ static void lockPiece(game_t* game) {
         }
     }
 
+    // So the soft fall doesn't feel like it gets directly transfered to the next piece (avoids unwanted softdrops)
+    game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
     game->lockedPieces++;
     addLineScore(game, clearLines(game));
     spawnPiece(game);
