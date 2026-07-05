@@ -265,6 +265,7 @@ static void movePiece(game_t* game, int drow, int dcol) {
     if (drow > 0) {
         if(!game->grounded){
             game->groundedAt = now;
+            game->lastLockDelayedAt= now;
             game->grounded = true;
         }
         return;
