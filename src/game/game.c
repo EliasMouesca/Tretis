@@ -383,8 +383,6 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (game->paused)
         return;
 
-    // Any non-disrupting key refreshes grounded timer
-    game->lastLockDelayedAt = now;
 
     if (key == game->config.keyHold || key == SDLK_C)
         holdPiece(game);
@@ -392,12 +390,14 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         game->movingLeft = true;
         game->movingRight = false;
         game->nextMoveAt = SDL_GetTicks() + INPUT_REPEAT_INITIAL_DELAY;
+        game->lastLockDelayedAt = now;
         movePiece(game, 0, -1);
     }
     else if (key == game->config.keyRight || key == SDLK_D) {
         game->movingRight = true;
         game->movingLeft = false;
         game->nextMoveAt = SDL_GetTicks() + INPUT_REPEAT_INITIAL_DELAY;
+        game->lastLockDelayedAt = now;
         movePiece(game, 0, 1);
     }
     else if (key == game->config.keyDown || key == SDLK_S) {
@@ -408,9 +408,11 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         movePiece(game, 1, 0);
     }
     else if (key == game->config.keyRotateLeft) {
+        game->lastLockDelayedAt = now;
         rotatePiece(game, -1);
     }
     else if (key == game->config.keyRotate || key == SDLK_W || key == game->config.keyRotateRight) {
+        game->lastLockDelayedAt = now;
         rotatePiece(game, 1);
     }
     else if (key == game->config.keyDrop)
