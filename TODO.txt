@@ -1,1 +1,4 @@
 - Cuando vaya a instalar de 0, que no reutilize los binarios compilados. Es probable que se rompa la ABI y muera la HUD. Cuando se hace makepkg -si que compile todos los archivos desde 0 siempre.
+- Cuando la rotación de una ficha hace que esta quede por fuera de la grilla (en suelo o costados), no se permite dicha rotación. Fix: Hacer que la ficha se desplace lo necesario para poder entrar bien
+- Deuda: Hacer que solo los eventos de mover horizontal y rotación reseteen el lock_delay. 
+- 
