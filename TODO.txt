@@ -1,0 +1,1 @@
+- Cuando vaya a instalar de 0, que no reutilize los binarios compilados. Es probable que se rompa la ABI y muera la HUD. Cuando se hace makepkg -si que compile todos los archivos desde 0 siempre.

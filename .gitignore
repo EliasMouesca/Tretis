@@ -6,3 +6,4 @@
 /dist/
 /pkg/
 /*.pkg.tar.*
+vgcore.*
