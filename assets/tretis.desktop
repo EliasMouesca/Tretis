@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Tretis
-Comment=Small SDL3 Tetris implementation
+Comment=Small SDL3 Tretis implementation
 Exec=tretis
 Icon=tretis
 Terminal=false

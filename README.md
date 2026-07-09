@@ -1,6 +1,6 @@
 # Tretis
 
-Tretis is a small SDL3 Tetris-like game written in C. It is intentionally quiet:
+Tretis is a small SDL3 Tretis-like game written in C. It is intentionally quiet:
 no sound, no flashy animation, and no busy effects. The goal is a low-friction
 game that can sit beside your thinking, not demand all of your attention.
 

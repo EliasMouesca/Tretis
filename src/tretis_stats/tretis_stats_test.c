@@ -10,7 +10,7 @@ static void testMissingStatsAreZero() {
     assert(stats.gamesPlayed == 0);
     assert(stats.highScore == 0);
     assert(stats.longestTime == 0);
-    assert(stats.mostTetrises == 0);
+    assert(stats.mostTretises == 0);
 }
 
 static void testStatsRoundTrip() {
@@ -21,7 +21,7 @@ static void testStatsRoundTrip() {
         .gamesPlayed = 5,
         .highScore = 1200,
         .longestTime = 345,
-        .mostTetrises = 3
+        .mostTretises = 3
     };
 
     saveTretisStats(path, saved);
@@ -30,7 +30,7 @@ static void testStatsRoundTrip() {
     assert(loaded.gamesPlayed == saved.gamesPlayed);
     assert(loaded.highScore == saved.highScore);
     assert(loaded.longestTime == saved.longestTime);
-    assert(loaded.mostTetrises == saved.mostTetrises);
+    assert(loaded.mostTretises == saved.mostTretises);
 }
 
 int main() {

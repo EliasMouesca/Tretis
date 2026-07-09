@@ -5,7 +5,7 @@ typedef struct {
     int gamesPlayed;
     int highScore;
     int longestTime;
-    int mostTetrises;
+    int mostTretises;
 } tretis_stats_t;
 
 tretis_stats_t loadTretisStats(const char* path);

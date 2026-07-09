@@ -47,6 +47,8 @@ tretis_config_t defaultTretisConfig() {
         .sidebarWidth = DEFAULT_SIDEBAR_WIDTH,
         .nextPieces = DEFAULT_NEXT_PIECES,
         .fallDelay = 500,
+        .moveRepeatDelay = 80,
+        .moveRepeatInitialDelay = 180,
         .lockDelay = 0,
         .maxLockDelay = 0,
         .softFallDelay = 45,
@@ -128,6 +130,8 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         else if (strcmp(key, "zen") == 0) config->zenMode = atoi(value) != 0;
         else if (strcmp(key, "block_size") == 0) config->blockSize = atoi(value);
         else if (strcmp(key, "fall_delay") == 0) config->fallDelay = atoi(value);
+        else if (strcmp(key, "move_repeat_delay") == 0) config->moveRepeatDelay = atoi(value);
+        else if (strcmp(key, "move_repeat_initial_delay") == 0) config->moveRepeatInitialDelay = atoi(value);
         else if (strcmp(key, "soft_fall_delay") == 0) config->softFallDelay = atoi(value);
         else if (strcmp(key, "speedup") == 0) config->speedup = atoi(value) != 0;
         else if (strcmp(key, "speedup_every") == 0) config->speedupEvery = atoi(value);
@@ -168,6 +172,8 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "zen %d\n", config->zenMode);
     fprintf(file, "block_size %d\n", config->blockSize);
     fprintf(file, "fall_delay %d\n", config->fallDelay);
+    fprintf(file, "move_repeat_delay %d\n", config->moveRepeatDelay);
+    fprintf(file, "move_repeat_initial_delay %d\n", config->moveRepeatInitialDelay);
     fprintf(file, "soft_fall_delay %d\n", config->softFallDelay);
     fprintf(file, "speedup %d\n", config->speedup);
     fprintf(file, "speedup_every %d\n", config->speedupEvery);

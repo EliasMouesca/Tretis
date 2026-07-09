@@ -22,8 +22,8 @@ tretis_stats_t loadTretisStats(const char* path) {
             stats.highScore = value;
         else if (strcmp(key, "longest_time") == 0)
             stats.longestTime = value;
-        else if (strcmp(key, "most_tetrises") == 0)
-            stats.mostTetrises = value;
+        else if (strcmp(key, "most_tretises") == 0)
+            stats.mostTretises = value;
     }
 
     fclose(file);
@@ -41,7 +41,7 @@ void saveTretisStats(const char* path, tretis_stats_t stats) {
     fprintf(file, "games_played %d\n", stats.gamesPlayed);
     fprintf(file, "high_score %d\n", stats.highScore);
     fprintf(file, "longest_time %d\n", stats.longestTime);
-    fprintf(file, "most_tetrises %d\n", stats.mostTetrises);
+    fprintf(file, "most_tretises %d\n", stats.mostTretises);
     fclose(file);
 }
 
@@ -52,5 +52,5 @@ void printTretisStats(const char* path) {
     printf("  Games played: %d\n", stats.gamesPlayed);
     printf("  High score: %d\n", stats.highScore);
     printf("  Longest game: %02d:%02d\n", stats.longestTime / 60, stats.longestTime % 60);
-    printf("  Most tetrises in one game: %d\n", stats.mostTetrises);
+    printf("  Most tretises in one game: %d\n", stats.mostTretises);
 }

@@ -7,9 +7,6 @@
 #include <string.h>
 #include <time.h>
 
-#define MOVE_REPEAT_DELAY 80
-#define INPUT_REPEAT_INITIAL_DELAY 180
-
 typedef struct {
     int col;
     int row;
@@ -219,7 +216,7 @@ static void addLineScore(game_t* game, int cleared) {
     }
 
     if (cleared == 4)
-        game->tetrises++;
+        game->tretises++;
 
     updateHighScore(game);
 }
@@ -238,7 +235,7 @@ static void lockPiece(game_t* game) {
     }
 
     // So the soft fall doesn't feel like it gets directly transfered to the next piece (avoids unwanted softdrops)
-    game->nextSoftFallAt = now + INPUT_REPEAT_INITIAL_DELAY;
+    game->nextSoftFallAt = now + game->config.moveRepeatInitialDelay;
     game->lockedPieces++;
     addLineScore(game, clearLines(game));
     spawnPiece(game);
@@ -367,8 +364,8 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         game->paused = !game->paused;
         if (wasPaused) {
             game->lastFall = now;
-            game->nextMoveAt = now + INPUT_REPEAT_INITIAL_DELAY;
-            game->nextSoftFallAt = now + MOVE_REPEAT_DELAY;
+            game->nextMoveAt = now + game->config.moveRepeatInitialDelay;
+            game->nextSoftFallAt = now + game->config.moveRepeatDelay;
         }
 
         return;
@@ -391,19 +388,19 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     else if (key == game->config.keyLeft || key == SDLK_A) {
         game->movingLeft = true;
         game->movingRight = false;
-        game->nextMoveAt = SDL_GetTicks() + INPUT_REPEAT_INITIAL_DELAY;
+        game->nextMoveAt = SDL_GetTicks() + game->config.moveRepeatInitialDelay;
         movePiece(game, 0, -1);
     }
     else if (key == game->config.keyRight || key == SDLK_D) {
         game->movingRight = true;
         game->movingLeft = false;
-        game->nextMoveAt = SDL_GetTicks() + INPUT_REPEAT_INITIAL_DELAY;
+        game->nextMoveAt = SDL_GetTicks() + game->config.moveRepeatInitialDelay;
         movePiece(game, 0, 1);
     }
     else if (key == game->config.keyDown || key == SDLK_S) {
         game->softDropping = true;
 
-        game->nextSoftFallAt = now + MOVE_REPEAT_DELAY;
+        game->nextSoftFallAt = now + game->config.moveRepeatDelay;
         game->lastFall = now;
         movePiece(game, 1, 0);
     }
@@ -437,7 +434,7 @@ void updateGame(game_t* game, uint64_t now) {
         return;
 
     if ((game->movingLeft || game->movingRight) && now >= game->nextMoveAt) {
-        game->nextMoveAt = now + MOVE_REPEAT_DELAY;
+        game->nextMoveAt = now + game->config.moveRepeatDelay;
         movePiece(game, 0, game->movingRight ? 1 : -1);
     }
 
@@ -571,8 +568,8 @@ void finalizeGame(game_t* game) {
         game->stats.highScore = game->score;
     if (elapsed > game->stats.longestTime)
         game->stats.longestTime = elapsed;
-    if (game->tetrises > game->stats.mostTetrises)
-        game->stats.mostTetrises = game->tetrises;
+    if (game->tretises > game->stats.mostTretises)
+        game->stats.mostTretises = game->tretises;
 
     saveTretisStats(game->config.statsPath, game->stats);
     game->statsSaved = true;
@@ -610,7 +607,7 @@ static void drawHud(const game_t* game, render_context_t* rc) {
         renderText(rc, x, y, buffer);
         y += line + smallGap;
 
-        snprintf(buffer, sizeof(buffer), "tetrises %d", game->tetrises);
+        snprintf(buffer, sizeof(buffer), "tretises %d", game->tretises);
         renderText(rc, x, y, buffer);
         y += line + smallGap;
 
