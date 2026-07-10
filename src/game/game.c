@@ -262,6 +262,7 @@ static void movePiece(game_t* game, int drow, int dcol) {
     if (drow > 0) {
         if(!game->grounded){
             game->groundedAt = now;
+            game->lastLockDelayedAt= now;
             game->grounded = true;
         }
         return;
@@ -380,8 +381,6 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (game->paused)
         return;
 
-    // Any non-disrupting key refreshes grounded timer
-    game->lastLockDelayedAt = now;
 
     if (key == game->config.keyHold || key == SDLK_C)
         holdPiece(game);
@@ -405,9 +404,11 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
         movePiece(game, 1, 0);
     }
     else if (key == game->config.keyRotateLeft) {
+        game->lastLockDelayedAt = now;
         rotatePiece(game, -1);
     }
     else if (key == game->config.keyRotate || key == SDLK_W || key == game->config.keyRotateRight) {
+        game->lastLockDelayedAt = now;
         rotatePiece(game, 1);
     }
     else if (key == game->config.keyDrop)
