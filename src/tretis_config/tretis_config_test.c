@@ -29,6 +29,8 @@ static void testConfigSaveLoadRoundTrip() {
     saved.zenMode = true;
     saved.blockSize = 23;
     saved.fallDelay = 321;
+    saved.moveRepeatDelay = 91;
+    saved.moveRepeatInitialDelay = 211;
     saved.softFallDelay = 27;
     saved.speedup = false;
     saved.speedupEvery = 12;
@@ -59,6 +61,8 @@ static void testConfigSaveLoadRoundTrip() {
     assert(loaded.zenMode == saved.zenMode);
     assert(loaded.blockSize == saved.blockSize);
     assert(loaded.fallDelay == saved.fallDelay);
+    assert(loaded.moveRepeatDelay == saved.moveRepeatDelay);
+    assert(loaded.moveRepeatInitialDelay == saved.moveRepeatInitialDelay);
     assert(loaded.softFallDelay == saved.softFallDelay);
     assert(loaded.speedup == saved.speedup);
     assert(loaded.speedupEvery == saved.speedupEvery);

@@ -26,7 +26,7 @@ typedef struct {
     bool hasHeldPiece;
     bool swappedHeldThisTurn;
     int lines;
-    int tetrises;
+    int tretises;
     int score;
     int lockedPieces;
     uint64_t startedAt;

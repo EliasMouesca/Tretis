@@ -66,6 +66,9 @@ static void printHelp(const char* program) {
     printf("  --next N               Number of next pieces to show, 0-%d (default %d)\n", MAX_NEXT_PIECES, DEFAULT_NEXT_PIECES);
     printf("  --block-size N         Pixel size for each board block (default %d)\n", DEFAULT_BLOCK_SIZE);
     printf("  --fall-delay N         Milliseconds between automatic falls (default 500)\n");
+    printf("  --move-repeat-delay N  Milliseconds between held horizontal moves (default 80)\n");
+    printf("  --move-repeat-initial-delay N\n");
+    printf("                         Milliseconds before held horizontal moves repeat (default 180)\n");
     printf("  --soft-fall-delay N    Milliseconds between held soft drop steps (default 45)\n");
     printf("  --speedup              Slowly increase fall speed over time (default)\n");
     printf("  --no-speedup           Keep fall speed constant\n");
@@ -84,6 +87,7 @@ static void printHelp(const char* program) {
     printf("Preferences are loaded from and saved to $HOME/.config/tretis/config.\n");
     printf("Key bindings can be edited there with key_left, key_right, key_down,\n");
     printf("key_rotate, key_drop, key_hold, key_restart, key_quit, and key_pause.\n");
+    printf("Timing can be tuned with move_repeat_delay and move_repeat_initial_delay.\n");
     printf("\n");
     printf("Controls:\n");
     printf("  Left/Right or A/D      Move\n");

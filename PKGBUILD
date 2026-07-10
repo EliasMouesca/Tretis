@@ -1,7 +1,7 @@
 pkgname=tretis
 pkgver=0.1.0
 pkgrel=1
-pkgdesc='Small SDL3 Tetris implementation'
+pkgdesc='Small SDL3 Tretis implementation'
 arch=('x86_64')
 url='https://github.com/EliasMouesca/Tretis'
 license=('custom')
