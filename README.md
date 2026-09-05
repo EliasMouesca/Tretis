@@ -45,7 +45,7 @@ sudo make install
 - Up or `W`: rotate
 - Space: hard drop
 - `E`: hold/swap current piece
-- `Ctrl+Z`: undo the last locked piece
+- `Ctrl+Z`: remove the last locked piece
 - `P` or Esc: pause
 - `R`: restart
 - `Q`: quit

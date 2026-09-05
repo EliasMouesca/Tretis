@@ -67,71 +67,36 @@ static void saveUndoSnapshot(game_t* game) {
     snapshot->grounded = game->grounded;
 }
 
-static void restoreUndoSnapshot(game_t* game) {
-    int undoCount = game->undoCount - 1;
-    game_snapshot_t* snapshot;
-
-    if (undoCount < 0)
-        return;
-
-    snapshot = &game->undoHistory[undoCount];
-    memcpy(game->board, snapshot->board, sizeof(game->board));
-    memcpy(game->next, snapshot->next, sizeof(game->next));
-    memcpy(game->bag, snapshot->bag, sizeof(game->bag));
-    memcpy(game->history, snapshot->history, sizeof(game->history));
-    game->piece = snapshot->piece;
-    game->bagSize = snapshot->bagSize;
-    game->bagIndex = snapshot->bagIndex;
-    game->generatedPieces = snapshot->generatedPieces;
-    game->heldPiece = snapshot->heldPiece;
-    game->rotation = snapshot->rotation;
-    game->row = snapshot->row;
-    game->col = snapshot->col;
-    game->hasHeldPiece = snapshot->hasHeldPiece;
-    game->swappedHeldThisTurn = snapshot->swappedHeldThisTurn;
-    game->lines = snapshot->lines;
-    game->tretises = snapshot->tretises;
-    game->score = snapshot->score;
-    game->lockedPieces = snapshot->lockedPieces;
-    game->startedAt = snapshot->startedAt;
-    game->lastFall = snapshot->lastFall;
-    game->nextMoveAt = snapshot->nextMoveAt;
-    game->nextSoftFallAt = snapshot->nextSoftFallAt;
-    game->lastTick = snapshot->lastTick;
-    game->elapsedTime = snapshot->elapsedTime;
-    game->groundedAt = snapshot->groundedAt;
-    game->lastLockDelayedAt = snapshot->lastLockDelayedAt;
-    game->stats = snapshot->stats;
-    game->config = snapshot->config;
-    game->running = snapshot->running;
-    game->paused = snapshot->paused;
-    game->gameOver = snapshot->gameOver;
-    game->statsSaved = snapshot->statsSaved;
-    game->movingLeft = snapshot->movingLeft;
-    game->movingRight = snapshot->movingRight;
-    game->softDropping = snapshot->softDropping;
-    game->grounded = snapshot->grounded;
-    game->undoCount = undoCount;
-}
-
 static void undoLastLock(game_t* game) {
+    game_snapshot_t* snapshot;
     int highScore;
     uint64_t now;
 
     if (game->paused || game->gameOver || game->undoCount == 0)
         return;
 
+    snapshot = &game->undoHistory[--game->undoCount];
     highScore = game->stats.highScore;
-    restoreUndoSnapshot(game);
+
+    // Keep the current turn and randomizer state. Undo only removes the lock.
+    memcpy(game->board, snapshot->board, sizeof(game->board));
+    game->lines = snapshot->lines;
+    game->tretises = snapshot->tretises;
+    game->score = snapshot->score;
+    game->lockedPieces = snapshot->lockedPieces;
     if (game->stats.highScore < highScore)
         game->stats.highScore = highScore;
 
-    // Give the restored piece a fresh chance to be moved or dropped.
+    // Do not revive held-key movement from the lock snapshot.
     now = SDL_GetTicks();
+    game->movingLeft = false;
+    game->movingRight = false;
+    game->softDropping = false;
     game->grounded = false;
     game->groundedAt = now;
     game->lastLockDelayedAt = now;
     game->lastFall = now;
+    game->nextMoveAt = now + game->config.moveRepeatInitialDelay;
     game->nextSoftFallAt = now + game->config.moveRepeatInitialDelay;
 }
 static void syncElapsedTime(game_t* game, uint64_t now);
