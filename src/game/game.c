@@ -13,6 +13,127 @@ typedef struct {
 } block_t;
 
 static int elapsedSeconds(const game_t* game);
+
+static void saveUndoSnapshot(game_t* game) {
+    int limit = game->config.undoLimit;
+
+    if (limit <= 0)
+        return;
+    if (limit > MAX_UNDO_HISTORY)
+        limit = MAX_UNDO_HISTORY;
+
+    if (game->undoCount == limit) {
+        memmove(&game->undoHistory[0], &game->undoHistory[1],
+                (size_t)(limit - 1) * sizeof(game->undoHistory[0]));
+        game->undoCount--;
+    }
+
+    game_snapshot_t* snapshot = &game->undoHistory[game->undoCount++];
+    memcpy(snapshot->board, game->board, sizeof(snapshot->board));
+    memcpy(snapshot->next, game->next, sizeof(snapshot->next));
+    memcpy(snapshot->bag, game->bag, sizeof(snapshot->bag));
+    memcpy(snapshot->history, game->history, sizeof(snapshot->history));
+    snapshot->piece = game->piece;
+    snapshot->bagSize = game->bagSize;
+    snapshot->bagIndex = game->bagIndex;
+    snapshot->generatedPieces = game->generatedPieces;
+    snapshot->heldPiece = game->heldPiece;
+    snapshot->rotation = game->rotation;
+    snapshot->row = game->row;
+    snapshot->col = game->col;
+    snapshot->hasHeldPiece = game->hasHeldPiece;
+    snapshot->swappedHeldThisTurn = game->swappedHeldThisTurn;
+    snapshot->lines = game->lines;
+    snapshot->tretises = game->tretises;
+    snapshot->score = game->score;
+    snapshot->lockedPieces = game->lockedPieces;
+    snapshot->startedAt = game->startedAt;
+    snapshot->lastFall = game->lastFall;
+    snapshot->nextMoveAt = game->nextMoveAt;
+    snapshot->nextSoftFallAt = game->nextSoftFallAt;
+    snapshot->lastTick = game->lastTick;
+    snapshot->elapsedTime = game->elapsedTime;
+    snapshot->groundedAt = game->groundedAt;
+    snapshot->lastLockDelayedAt = game->lastLockDelayedAt;
+    snapshot->stats = game->stats;
+    snapshot->config = game->config;
+    snapshot->running = game->running;
+    snapshot->paused = game->paused;
+    snapshot->gameOver = game->gameOver;
+    snapshot->statsSaved = game->statsSaved;
+    snapshot->movingLeft = game->movingLeft;
+    snapshot->movingRight = game->movingRight;
+    snapshot->softDropping = game->softDropping;
+    snapshot->grounded = game->grounded;
+}
+
+static void restoreUndoSnapshot(game_t* game) {
+    int undoCount = game->undoCount - 1;
+    game_snapshot_t* snapshot;
+
+    if (undoCount < 0)
+        return;
+
+    snapshot = &game->undoHistory[undoCount];
+    memcpy(game->board, snapshot->board, sizeof(game->board));
+    memcpy(game->next, snapshot->next, sizeof(game->next));
+    memcpy(game->bag, snapshot->bag, sizeof(game->bag));
+    memcpy(game->history, snapshot->history, sizeof(game->history));
+    game->piece = snapshot->piece;
+    game->bagSize = snapshot->bagSize;
+    game->bagIndex = snapshot->bagIndex;
+    game->generatedPieces = snapshot->generatedPieces;
+    game->heldPiece = snapshot->heldPiece;
+    game->rotation = snapshot->rotation;
+    game->row = snapshot->row;
+    game->col = snapshot->col;
+    game->hasHeldPiece = snapshot->hasHeldPiece;
+    game->swappedHeldThisTurn = snapshot->swappedHeldThisTurn;
+    game->lines = snapshot->lines;
+    game->tretises = snapshot->tretises;
+    game->score = snapshot->score;
+    game->lockedPieces = snapshot->lockedPieces;
+    game->startedAt = snapshot->startedAt;
+    game->lastFall = snapshot->lastFall;
+    game->nextMoveAt = snapshot->nextMoveAt;
+    game->nextSoftFallAt = snapshot->nextSoftFallAt;
+    game->lastTick = snapshot->lastTick;
+    game->elapsedTime = snapshot->elapsedTime;
+    game->groundedAt = snapshot->groundedAt;
+    game->lastLockDelayedAt = snapshot->lastLockDelayedAt;
+    game->stats = snapshot->stats;
+    game->config = snapshot->config;
+    game->running = snapshot->running;
+    game->paused = snapshot->paused;
+    game->gameOver = snapshot->gameOver;
+    game->statsSaved = snapshot->statsSaved;
+    game->movingLeft = snapshot->movingLeft;
+    game->movingRight = snapshot->movingRight;
+    game->softDropping = snapshot->softDropping;
+    game->grounded = snapshot->grounded;
+    game->undoCount = undoCount;
+}
+
+static void undoLastLock(game_t* game) {
+    int highScore;
+    uint64_t now;
+
+    if (game->paused || game->gameOver || game->undoCount == 0)
+        return;
+
+    highScore = game->stats.highScore;
+    restoreUndoSnapshot(game);
+    if (game->stats.highScore < highScore)
+        game->stats.highScore = highScore;
+
+    // Give the restored piece a fresh chance to be moved or dropped.
+    now = SDL_GetTicks();
+    game->grounded = false;
+    game->groundedAt = now;
+    game->lastLockDelayedAt = now;
+    game->lastFall = now;
+    game->nextSoftFallAt = now + game->config.moveRepeatInitialDelay;
+}
 static void syncElapsedTime(game_t* game, uint64_t now);
 static void endGame(game_t* game);
 
@@ -225,6 +346,8 @@ static void lockPiece(game_t* game) {
     const block_t* shape = PIECES[game->piece][game->rotation];
     uint64_t now = SDL_GetTicks();
 
+    saveUndoSnapshot(game);
+
     for (int i = 0; i < 4; i++) {
         int r = game->row + shape[i].row;
         int c = game->col + shape[i].col;
@@ -351,6 +474,17 @@ void initGame(game_t* game, tretis_config_t config) {
 }
 
 void handleGameKey(game_t* game, SDL_Keycode key) {
+    handleGameKeyWithMod(game, key, SDL_KMOD_NONE);
+}
+
+static bool matchesUndoShortcut(const game_t* game, SDL_Keycode key, SDL_Keymod mod) {
+    const SDL_Keymod relevant = SDL_KMOD_CTRL | SDL_KMOD_SHIFT | SDL_KMOD_ALT | SDL_KMOD_GUI;
+
+    return key == game->config.keyUndo &&
+        (mod & relevant) == game->config.keyUndoMod;
+}
+
+void handleGameKeyWithMod(game_t* game, SDL_Keycode key, SDL_Keymod mod) {
     uint64_t now = SDL_GetTicks();
 
     if (key == game->config.keyQuit) {
@@ -375,6 +509,11 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (key == game->config.keyRestart) {
         finalizeGame(game);
         initGame(game, game->config);
+        return;
+    }
+
+    if (matchesUndoShortcut(game, key, mod)) {
+        undoLastLock(game);
         return;
     }
 

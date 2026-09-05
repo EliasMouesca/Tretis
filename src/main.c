@@ -87,6 +87,8 @@ static void printHelp(const char* program) {
     printf("Preferences are loaded from and saved to $HOME/.config/tretis/config.\n");
     printf("Key bindings can be edited there with key_left, key_right, key_down,\n");
     printf("key_rotate, key_drop, key_hold, key_restart, key_quit, and key_pause.\n");
+    printf("key_undo accepts shortcuts such as ctrl+z.\n");
+    printf("Undo history depth can be configured with undo_limit.\n");
     printf("Timing can be tuned with move_repeat_delay and move_repeat_initial_delay.\n");
     printf("\n");
     printf("Controls:\n");
@@ -166,6 +168,10 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
         config.nextPieces = 0;
     if (config.nextPieces > MAX_NEXT_PIECES)
         config.nextPieces = MAX_NEXT_PIECES;
+    if (config.undoLimit < 0)
+        config.undoLimit = 0;
+    if (config.undoLimit > MAX_UNDO_HISTORY)
+        config.undoLimit = MAX_UNDO_HISTORY;
     if (config.blockSize < 8)
         config.blockSize = 8;
     if (config.fallDelay < 50)
@@ -210,7 +216,7 @@ int main(int argc, char* argv[]) {
                 handleGameKey(&game, SDLK_Q);
 
             if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
-                handleGameKey(&game, event.key.key);
+                handleGameKeyWithMod(&game, event.key.key, event.key.mod);
 
             if (event.type == SDL_EVENT_KEY_UP)
                 releaseGameKey(&game, event.key.key);

@@ -10,6 +10,8 @@
 #define DEFAULT_SIDEBAR_WIDTH 180
 #define DEFAULT_NEXT_PIECES 4
 #define MAX_NEXT_PIECES 6
+#define MAX_UNDO_HISTORY 64
+#define DEFAULT_UNDO_LIMIT 5
 #define STATS_PATH_MAX 256
 #define FONT_PATH_MAX 256
 #define CONFIG_PATH_MAX 256
@@ -27,6 +29,7 @@ typedef struct {
     int blockSize;
     int sidebarWidth;
     int nextPieces;
+    int undoLimit;
     int fallDelay;
     int moveRepeatDelay;
     int moveRepeatInitialDelay;
@@ -53,6 +56,8 @@ typedef struct {
     SDL_Keycode keyRestart;
     SDL_Keycode keyQuit;
     SDL_Keycode keyPause;
+    SDL_Keycode keyUndo;
+    SDL_Keymod keyUndoMod;
     char statsPath[STATS_PATH_MAX];
     char configPath[CONFIG_PATH_MAX];
     char fontPath[FONT_PATH_MAX];
@@ -63,6 +68,9 @@ tretis_config_t sensibleTretisConfig();
 void loadTretisConfig(tretis_config_t* config, const char* path);
 void saveTretisConfig(const tretis_config_t* config, const char* path);
 SDL_Keycode parseKeyName(const char* value, SDL_Keycode fallback);
+SDL_Keycode parseShortcut(const char* value, SDL_Keycode fallbackKey,
+        SDL_Keymod fallbackMod, SDL_Keymod* mod);
 const char* keyName(SDL_Keycode key);
+const char* shortcutName(SDL_Keycode key, SDL_Keymod mod);
 
 #endif

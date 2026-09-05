@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 static tretis_config_t testConfig() {
@@ -89,10 +90,76 @@ static void testZXCControlAliases() {
     assert(game.swappedHeldThisTurn);
 }
 
+static void testUndoRestoresTheStateBeforeTheLastLock() {
+    game_t game;
+    cell_color_t board[BOARD_ROWS][BOARD_COLS];
+    int next[MAX_NEXT_PIECES];
+    int piece;
+    int col;
+    int bagIndex;
+    int lockedPieces;
+
+    initGame(&game, testConfig());
+    game.config.undoLimit = 5;
+    memcpy(board, game.board, sizeof(board));
+    memcpy(next, game.next, sizeof(next));
+    piece = game.piece;
+    col = game.col;
+    bagIndex = game.bagIndex;
+    lockedPieces = game.lockedPieces;
+
+    handleGameKey(&game, game.config.keyDrop);
+    assert(game.undoCount == 1);
+    assert(game.lockedPieces == lockedPieces + 1);
+
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+
+    assert(game.undoCount == 0);
+    assert(memcmp(game.board, board, sizeof(board)) == 0);
+    assert(memcmp(game.next, next, sizeof(next)) == 0);
+    assert(game.piece == piece);
+    assert(game.row >= 0 && game.row < BOARD_ROWS);
+    assert(game.col == col);
+    assert(game.bagIndex == bagIndex);
+    assert(game.lockedPieces == lockedPieces);
+}
+
+static void testUndoLimitAndUnavailableStates() {
+    game_t game;
+
+    initGame(&game, testConfig());
+    game.config.undoLimit = 2;
+
+    for (int i = 0; i < 3; i++) {
+        handleGameKey(&game, game.config.keyDrop);
+        memset(game.board, 0, sizeof(game.board));
+        game.gameOver = false;
+        game.running = true;
+    }
+
+    assert(game.undoCount == 2);
+    game.paused = true;
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    assert(game.undoCount == 2);
+
+    game.paused = false;
+    game.gameOver = true;
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    assert(game.undoCount == 2);
+
+    game.gameOver = false;
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    assert(game.undoCount == 0);
+}
+
 int main() {
     testInitGameSetsPlayableDefaults();
     testElapsedTimeOnlyAccumulatesWhileActive();
     testMoveKeysSetAndReleaseHeldState();
     testZXCControlAliases();
+    testUndoRestoresTheStateBeforeTheLastLock();
+    testUndoLimitAndUnavailableStates();
     return 0;
 }
