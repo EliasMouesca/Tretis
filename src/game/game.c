@@ -477,11 +477,21 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     handleGameKeyWithMod(game, key, SDL_KMOD_NONE);
 }
 
+static SDL_Keymod normalizeShortcutModifiers(SDL_Keymod mod) {
+    SDL_Keymod normalized = SDL_KMOD_NONE;
+
+    if (mod & SDL_KMOD_CTRL) normalized |= SDL_KMOD_CTRL;
+    if (mod & SDL_KMOD_SHIFT) normalized |= SDL_KMOD_SHIFT;
+    if (mod & SDL_KMOD_ALT) normalized |= SDL_KMOD_ALT;
+    if (mod & SDL_KMOD_GUI) normalized |= SDL_KMOD_GUI;
+
+    return normalized;
+}
+
 static bool matchesUndoShortcut(const game_t* game, SDL_Keycode key, SDL_Keymod mod) {
-    const SDL_Keymod relevant = SDL_KMOD_CTRL | SDL_KMOD_SHIFT | SDL_KMOD_ALT | SDL_KMOD_GUI;
 
     return key == game->config.keyUndo &&
-        (mod & relevant) == game->config.keyUndoMod;
+        normalizeShortcutModifiers(mod) == normalizeShortcutModifiers(game->config.keyUndoMod);
 }
 
 void handleGameKeyWithMod(game_t* game, SDL_Keycode key, SDL_Keymod mod) {

@@ -112,7 +112,7 @@ static void testUndoRestoresTheStateBeforeTheLastLock() {
     assert(game.undoCount == 1);
     assert(game.lockedPieces == lockedPieces + 1);
 
-    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_LCTRL);
 
     assert(game.undoCount == 0);
     assert(memcmp(game.board, board, sizeof(board)) == 0);
@@ -139,18 +139,18 @@ static void testUndoLimitAndUnavailableStates() {
 
     assert(game.undoCount == 2);
     game.paused = true;
-    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_LCTRL);
     assert(game.undoCount == 2);
 
     game.paused = false;
     game.gameOver = true;
-    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_RCTRL);
     assert(game.undoCount == 2);
 
     game.gameOver = false;
-    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
-    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
-    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_CTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_LCTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_LCTRL);
+    handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_LCTRL);
     assert(game.undoCount == 0);
 }
 
