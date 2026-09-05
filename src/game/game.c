@@ -14,21 +14,7 @@ typedef struct {
 
 static int elapsedSeconds(const game_t* game);
 
-static void saveUndoSnapshot(game_t* game) {
-    int limit = game->config.undoLimit;
-
-    if (limit <= 0)
-        return;
-    if (limit > MAX_UNDO_HISTORY)
-        limit = MAX_UNDO_HISTORY;
-
-    if (game->undoCount == limit) {
-        memmove(&game->undoHistory[0], &game->undoHistory[1],
-                (size_t)(limit - 1) * sizeof(game->undoHistory[0]));
-        game->undoCount--;
-    }
-
-    game_snapshot_t* snapshot = &game->undoHistory[game->undoCount++];
+static void copyGameToSnapshot(const game_t* game, game_snapshot_t* snapshot) {
     memcpy(snapshot->board, game->board, sizeof(snapshot->board));
     memcpy(snapshot->next, game->next, sizeof(snapshot->next));
     memcpy(snapshot->bag, game->bag, sizeof(snapshot->bag));
@@ -67,6 +53,28 @@ static void saveUndoSnapshot(game_t* game) {
     snapshot->grounded = game->grounded;
 }
 
+static void saveTurnSnapshot(game_t* game) {
+    copyGameToSnapshot(game, &game->turnStart);
+    game->hasTurnSnapshot = true;
+}
+
+static void saveUndoSnapshot(game_t* game) {
+    int limit = game->config.undoLimit;
+
+    if (limit <= 0)
+        return;
+    if (limit > MAX_UNDO_HISTORY)
+        limit = MAX_UNDO_HISTORY;
+
+    if (game->undoCount == limit) {
+        memmove(&game->undoHistory[0], &game->undoHistory[1],
+                (size_t)(limit - 1) * sizeof(game->undoHistory[0]));
+        game->undoCount--;
+    }
+
+    game->undoHistory[game->undoCount++] = game->turnStart;
+}
+
 static void undoLastLock(game_t* game) {
     game_snapshot_t* snapshot;
     int highScore;
@@ -78,16 +86,47 @@ static void undoLastLock(game_t* game) {
     snapshot = &game->undoHistory[--game->undoCount];
     highScore = game->stats.highScore;
 
-    // Keep the current turn and randomizer state. Undo only removes the lock.
+    // Restore the complete state from before the locked piece's turn.
     memcpy(game->board, snapshot->board, sizeof(game->board));
+    memcpy(game->next, snapshot->next, sizeof(game->next));
+    memcpy(game->bag, snapshot->bag, sizeof(game->bag));
+    memcpy(game->history, snapshot->history, sizeof(game->history));
+    game->piece = snapshot->piece;
+    game->bagSize = snapshot->bagSize;
+    game->bagIndex = snapshot->bagIndex;
+    game->generatedPieces = snapshot->generatedPieces;
+    game->heldPiece = snapshot->heldPiece;
+    game->rotation = snapshot->rotation;
+    game->row = snapshot->row;
+    game->col = snapshot->col;
+    game->hasHeldPiece = snapshot->hasHeldPiece;
+    game->swappedHeldThisTurn = snapshot->swappedHeldThisTurn;
     game->lines = snapshot->lines;
     game->tretises = snapshot->tretises;
     game->score = snapshot->score;
     game->lockedPieces = snapshot->lockedPieces;
+    game->startedAt = snapshot->startedAt;
+    game->lastFall = snapshot->lastFall;
+    game->nextMoveAt = snapshot->nextMoveAt;
+    game->nextSoftFallAt = snapshot->nextSoftFallAt;
+    game->lastTick = snapshot->lastTick;
+    game->elapsedTime = snapshot->elapsedTime;
+    game->groundedAt = snapshot->groundedAt;
+    game->lastLockDelayedAt = snapshot->lastLockDelayedAt;
+    game->stats = snapshot->stats;
+    game->config = snapshot->config;
+    game->running = snapshot->running;
+    game->paused = snapshot->paused;
+    game->gameOver = snapshot->gameOver;
+    game->statsSaved = snapshot->statsSaved;
+    game->grounded = snapshot->grounded;
+    game->turnStart = *snapshot;
+    game->hasTurnSnapshot = true;
+
     if (game->stats.highScore < highScore)
         game->stats.highScore = highScore;
 
-    // Do not revive held-key movement from the lock snapshot.
+    // Do not revive held-key movement from the turn snapshot.
     now = SDL_GetTicks();
     game->movingLeft = false;
     game->movingRight = false;
@@ -333,6 +372,7 @@ static void lockPiece(game_t* game) {
     }
 
     game->grounded = false;
+    saveTurnSnapshot(game);
 }
 
 static void movePiece(game_t* game, int drow, int dcol) {
@@ -412,6 +452,7 @@ static void holdPiece(game_t* game) {
     }
 
     game->swappedHeldThisTurn = true;
+    saveTurnSnapshot(game);
 }
 
 void initGame(game_t* game, tretis_config_t config) {
@@ -436,6 +477,7 @@ void initGame(game_t* game, tretis_config_t config) {
     game->lastTick = game->startedAt;
     refillNextQueue(game);
     spawnPiece(game);
+    saveTurnSnapshot(game);
 }
 
 void handleGameKey(game_t* game, SDL_Keycode key) {

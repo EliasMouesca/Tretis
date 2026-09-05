@@ -88,6 +88,8 @@ typedef struct {
     bool grounded; 
     game_snapshot_t undoHistory[MAX_UNDO_HISTORY];
     int undoCount;
+    game_snapshot_t turnStart;
+    bool hasTurnSnapshot;
 } game_t;
 
 void initGame(game_t* game, tretis_config_t config);

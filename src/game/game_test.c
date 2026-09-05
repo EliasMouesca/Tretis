@@ -94,7 +94,7 @@ static void testUndoRemovesLastLockAndKeepsCurrentTurn() {
     game_t game;
     cell_color_t board[BOARD_ROWS][BOARD_COLS];
     int next[MAX_NEXT_PIECES];
-    int currentPiece;
+    int piece;
     int col;
     int bagIndex;
     int lockedPieces;
@@ -103,6 +103,7 @@ static void testUndoRemovesLastLockAndKeepsCurrentTurn() {
     game.config.undoLimit = 5;
     memcpy(board, game.board, sizeof(board));
     memcpy(next, game.next, sizeof(next));
+    piece = game.piece;
     col = game.col;
     bagIndex = game.bagIndex;
     lockedPieces = game.lockedPieces;
@@ -110,16 +111,13 @@ static void testUndoRemovesLastLockAndKeepsCurrentTurn() {
     handleGameKey(&game, game.config.keyDrop);
     assert(game.undoCount == 1);
     assert(game.lockedPieces == lockedPieces + 1);
-    currentPiece = game.piece;
-    memcpy(next, game.next, sizeof(next));
-    bagIndex = game.bagIndex;
 
     handleGameKeyWithMod(&game, SDLK_Z, SDL_KMOD_LCTRL);
 
     assert(game.undoCount == 0);
     assert(memcmp(game.board, board, sizeof(board)) == 0);
     assert(memcmp(game.next, next, sizeof(next)) == 0);
-    assert(game.piece == currentPiece);
+    assert(game.piece == piece);
     assert(game.row == 0);
     assert(game.col == col);
     assert(game.bagIndex == bagIndex);
@@ -150,9 +148,6 @@ static void testUndoLimitAndUnavailableStates() {
 
     for (int i = 0; i < 3; i++) {
         handleGameKey(&game, game.config.keyDrop);
-        memset(game.board, 0, sizeof(game.board));
-        game.gameOver = false;
-        game.running = true;
     }
 
     assert(game.undoCount == 2);
