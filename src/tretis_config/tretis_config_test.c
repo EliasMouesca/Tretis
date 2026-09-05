@@ -15,6 +15,13 @@ static void testKeyNamesRoundTrip() {
     assert(parseKeyName("z", 0) == SDLK_Z);
     assert(parseKeyName("unknown", SDLK_Q) == SDLK_Q);
 
+    SDL_Keymod mod = SDL_KMOD_NONE;
+    assert(parseShortcut("ctrl+z", SDLK_Q, SDL_KMOD_NONE, &mod) == SDLK_Z);
+    assert(mod == SDL_KMOD_CTRL);
+    assert(parseShortcut("shift+alt+left", SDLK_Q, SDL_KMOD_NONE, &mod) == SDLK_LEFT);
+    assert(mod == (SDL_KMOD_SHIFT | SDL_KMOD_ALT));
+    assert(strcmp(shortcutName(SDLK_Z, SDL_KMOD_CTRL), "ctrl+z") == 0);
+
     assert(keyName(SDLK_LEFT)[0] == 'l');
     assert(keyName(SDLK_Z)[0] == 'z');
 }
@@ -37,6 +44,7 @@ static void testConfigSaveLoadRoundTrip() {
     saved.speedupStep = 4;
     saved.minFallDelay = 111;
     saved.nextPieces = 2;
+    saved.undoLimit = 12;
     saved.sidebarWidth = 140;
     saved.fontSize = 17;
     saved.keyLeft = SDLK_A;
@@ -48,6 +56,8 @@ static void testConfigSaveLoadRoundTrip() {
     saved.keyRestart = SDLK_R;
     saved.keyQuit = SDLK_Q;
     saved.keyPause = SDLK_P;
+    saved.keyUndo = SDLK_Z;
+    saved.keyUndoMod = SDL_KMOD_CTRL;
     snprintf(saved.fontPath, sizeof(saved.fontPath), "/tmp/font.ttf");
     snprintf(saved.statsPath, sizeof(saved.statsPath), "/tmp/stats");
 
@@ -69,6 +79,7 @@ static void testConfigSaveLoadRoundTrip() {
     assert(loaded.speedupStep == saved.speedupStep);
     assert(loaded.minFallDelay == saved.minFallDelay);
     assert(loaded.nextPieces == saved.nextPieces);
+    assert(loaded.undoLimit == saved.undoLimit);
     assert(loaded.sidebarWidth == saved.sidebarWidth);
     assert(loaded.fontSize == saved.fontSize);
     assert(loaded.keyLeft == saved.keyLeft);
@@ -80,6 +91,8 @@ static void testConfigSaveLoadRoundTrip() {
     assert(loaded.keyRestart == saved.keyRestart);
     assert(loaded.keyQuit == saved.keyQuit);
     assert(loaded.keyPause == saved.keyPause);
+    assert(loaded.keyUndo == saved.keyUndo);
+    assert(loaded.keyUndoMod == saved.keyUndoMod);
 }
 
 int main() {

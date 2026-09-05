@@ -13,6 +13,131 @@ typedef struct {
 } block_t;
 
 static int elapsedSeconds(const game_t* game);
+
+static void copyGameToSnapshot(const game_t* game, game_snapshot_t* snapshot) {
+    memcpy(snapshot->board, game->board, sizeof(snapshot->board));
+    memcpy(snapshot->next, game->next, sizeof(snapshot->next));
+    memcpy(snapshot->bag, game->bag, sizeof(snapshot->bag));
+    memcpy(snapshot->history, game->history, sizeof(snapshot->history));
+    snapshot->piece = game->piece;
+    snapshot->bagSize = game->bagSize;
+    snapshot->bagIndex = game->bagIndex;
+    snapshot->generatedPieces = game->generatedPieces;
+    snapshot->heldPiece = game->heldPiece;
+    snapshot->rotation = game->rotation;
+    snapshot->row = game->row;
+    snapshot->col = game->col;
+    snapshot->hasHeldPiece = game->hasHeldPiece;
+    snapshot->swappedHeldThisTurn = game->swappedHeldThisTurn;
+    snapshot->lines = game->lines;
+    snapshot->tretises = game->tretises;
+    snapshot->score = game->score;
+    snapshot->lockedPieces = game->lockedPieces;
+    snapshot->startedAt = game->startedAt;
+    snapshot->lastFall = game->lastFall;
+    snapshot->nextMoveAt = game->nextMoveAt;
+    snapshot->nextSoftFallAt = game->nextSoftFallAt;
+    snapshot->lastTick = game->lastTick;
+    snapshot->elapsedTime = game->elapsedTime;
+    snapshot->groundedAt = game->groundedAt;
+    snapshot->lastLockDelayedAt = game->lastLockDelayedAt;
+    snapshot->stats = game->stats;
+    snapshot->config = game->config;
+    snapshot->running = game->running;
+    snapshot->paused = game->paused;
+    snapshot->gameOver = game->gameOver;
+    snapshot->statsSaved = game->statsSaved;
+    snapshot->movingLeft = game->movingLeft;
+    snapshot->movingRight = game->movingRight;
+    snapshot->softDropping = game->softDropping;
+    snapshot->grounded = game->grounded;
+}
+
+static void saveTurnSnapshot(game_t* game) {
+    copyGameToSnapshot(game, &game->turnStart);
+    game->hasTurnSnapshot = true;
+}
+
+static void saveUndoSnapshot(game_t* game) {
+    int limit = game->config.undoLimit;
+
+    if (limit <= 0)
+        return;
+    if (limit > MAX_UNDO_HISTORY)
+        limit = MAX_UNDO_HISTORY;
+
+    if (game->undoCount == limit) {
+        memmove(&game->undoHistory[0], &game->undoHistory[1],
+                (size_t)(limit - 1) * sizeof(game->undoHistory[0]));
+        game->undoCount--;
+    }
+
+    game->undoHistory[game->undoCount++] = game->turnStart;
+}
+
+static void undoLastLock(game_t* game) {
+    game_snapshot_t* snapshot;
+    int highScore;
+    uint64_t now;
+
+    if (game->paused || game->gameOver || game->undoCount == 0)
+        return;
+
+    snapshot = &game->undoHistory[--game->undoCount];
+    highScore = game->stats.highScore;
+
+    // Restore the complete state from before the locked piece's turn.
+    memcpy(game->board, snapshot->board, sizeof(game->board));
+    memcpy(game->next, snapshot->next, sizeof(game->next));
+    memcpy(game->bag, snapshot->bag, sizeof(game->bag));
+    memcpy(game->history, snapshot->history, sizeof(game->history));
+    game->piece = snapshot->piece;
+    game->bagSize = snapshot->bagSize;
+    game->bagIndex = snapshot->bagIndex;
+    game->generatedPieces = snapshot->generatedPieces;
+    game->heldPiece = snapshot->heldPiece;
+    game->rotation = snapshot->rotation;
+    game->row = snapshot->row;
+    game->col = snapshot->col;
+    game->hasHeldPiece = snapshot->hasHeldPiece;
+    game->swappedHeldThisTurn = snapshot->swappedHeldThisTurn;
+    game->lines = snapshot->lines;
+    game->tretises = snapshot->tretises;
+    game->score = snapshot->score;
+    game->lockedPieces = snapshot->lockedPieces;
+    game->startedAt = snapshot->startedAt;
+    game->lastFall = snapshot->lastFall;
+    game->nextMoveAt = snapshot->nextMoveAt;
+    game->nextSoftFallAt = snapshot->nextSoftFallAt;
+    game->lastTick = snapshot->lastTick;
+    game->elapsedTime = snapshot->elapsedTime;
+    game->groundedAt = snapshot->groundedAt;
+    game->lastLockDelayedAt = snapshot->lastLockDelayedAt;
+    game->stats = snapshot->stats;
+    game->config = snapshot->config;
+    game->running = snapshot->running;
+    game->paused = snapshot->paused;
+    game->gameOver = snapshot->gameOver;
+    game->statsSaved = snapshot->statsSaved;
+    game->grounded = snapshot->grounded;
+    game->turnStart = *snapshot;
+    game->hasTurnSnapshot = true;
+
+    if (game->stats.highScore < highScore)
+        game->stats.highScore = highScore;
+
+    // Do not revive held-key movement from the turn snapshot.
+    now = SDL_GetTicks();
+    game->movingLeft = false;
+    game->movingRight = false;
+    game->softDropping = false;
+    game->grounded = false;
+    game->groundedAt = now;
+    game->lastLockDelayedAt = now;
+    game->lastFall = now;
+    game->nextMoveAt = now + game->config.moveRepeatInitialDelay;
+    game->nextSoftFallAt = now + game->config.moveRepeatInitialDelay;
+}
 static void syncElapsedTime(game_t* game, uint64_t now);
 static void endGame(game_t* game);
 
@@ -225,6 +350,8 @@ static void lockPiece(game_t* game) {
     const block_t* shape = PIECES[game->piece][game->rotation];
     uint64_t now = SDL_GetTicks();
 
+    saveUndoSnapshot(game);
+
     for (int i = 0; i < 4; i++) {
         int r = game->row + shape[i].row;
         int c = game->col + shape[i].col;
@@ -245,6 +372,7 @@ static void lockPiece(game_t* game) {
     }
 
     game->grounded = false;
+    saveTurnSnapshot(game);
 }
 
 static void movePiece(game_t* game, int drow, int dcol) {
@@ -324,6 +452,7 @@ static void holdPiece(game_t* game) {
     }
 
     game->swappedHeldThisTurn = true;
+    saveTurnSnapshot(game);
 }
 
 void initGame(game_t* game, tretis_config_t config) {
@@ -348,9 +477,31 @@ void initGame(game_t* game, tretis_config_t config) {
     game->lastTick = game->startedAt;
     refillNextQueue(game);
     spawnPiece(game);
+    saveTurnSnapshot(game);
 }
 
 void handleGameKey(game_t* game, SDL_Keycode key) {
+    handleGameKeyWithMod(game, key, SDL_KMOD_NONE);
+}
+
+static SDL_Keymod normalizeShortcutModifiers(SDL_Keymod mod) {
+    SDL_Keymod normalized = SDL_KMOD_NONE;
+
+    if (mod & SDL_KMOD_CTRL) normalized |= SDL_KMOD_CTRL;
+    if (mod & SDL_KMOD_SHIFT) normalized |= SDL_KMOD_SHIFT;
+    if (mod & SDL_KMOD_ALT) normalized |= SDL_KMOD_ALT;
+    if (mod & SDL_KMOD_GUI) normalized |= SDL_KMOD_GUI;
+
+    return normalized;
+}
+
+static bool matchesUndoShortcut(const game_t* game, SDL_Keycode key, SDL_Keymod mod) {
+
+    return key == game->config.keyUndo &&
+        normalizeShortcutModifiers(mod) == normalizeShortcutModifiers(game->config.keyUndoMod);
+}
+
+void handleGameKeyWithMod(game_t* game, SDL_Keycode key, SDL_Keymod mod) {
     uint64_t now = SDL_GetTicks();
 
     if (key == game->config.keyQuit) {
@@ -375,6 +526,11 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (key == game->config.keyRestart) {
         finalizeGame(game);
         initGame(game, game->config);
+        return;
+    }
+
+    if (matchesUndoShortcut(game, key, mod)) {
+        undoLastLock(game);
         return;
     }
 

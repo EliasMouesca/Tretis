@@ -45,11 +45,15 @@ sudo make install
 - Up or `W`: rotate
 - Space: hard drop
 - `E`: hold/swap current piece
+- `Ctrl+Z`: remove the last locked piece
 - `P` or Esc: pause
 - `R`: restart
 - `Q`: quit
 
-Key bindings can also be edited in `$HOME/.config/tretis/config`.
+Key bindings can also be edited in `$HOME/.config/tretis/config`. The undo
+shortcut uses the `key_undo` setting, for example `key_undo ctrl+z`. The number
+of locks that can be undone is controlled with `undo_limit` (0 to 64) and
+defaults to 5.
 
 ## Command-Line Options
 
