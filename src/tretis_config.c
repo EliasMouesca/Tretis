@@ -137,6 +137,7 @@ tretis_config_t defaultTretisConfig() {
         .showHud = true,
         .showGhost = true,
         .zenMode = false,
+        .resumePaused = false,
         .keyLeft = SDLK_LEFT,
         .keyRight = SDLK_RIGHT,
         .keyDown = SDLK_DOWN,
@@ -152,8 +153,9 @@ tretis_config_t defaultTretisConfig() {
         .keyUndoMod = SDL_KMOD_CTRL
     };
 
-    // sets default stats and config file path in config.{statsPath; configPath}
+    // Sets default runtime paths in config.{statsPath; snapshotPath; configPath}.
     makeDefaultRuntimePath(config.statsPath, sizeof(config.statsPath), "stats");
+    makeDefaultRuntimePath(config.snapshotPath, sizeof(config.snapshotPath), "snapshot");
     makeDefaultRuntimePath(config.configPath, sizeof(config.configPath), "config");
     snprintf(config.fontPath, sizeof(config.fontPath), "./fonts/SpaceMono-Regular.ttf");
 
@@ -206,6 +208,7 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         if (strcmp(key, "show_hud") == 0) config->showHud = atoi(value) != 0;
         else if (strcmp(key, "show_ghost") == 0) config->showGhost = atoi(value) != 0;
         else if (strcmp(key, "zen") == 0) config->zenMode = atoi(value) != 0;
+        else if (strcmp(key, "resume_paused") == 0) config->resumePaused = atoi(value) != 0;
         else if (strcmp(key, "block_size") == 0) config->blockSize = atoi(value);
         else if (strcmp(key, "fall_delay") == 0) config->fallDelay = atoi(value);
         else if (strcmp(key, "move_repeat_delay") == 0) config->moveRepeatDelay = atoi(value);
@@ -221,6 +224,7 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         else if (strcmp(key, "font_size") == 0) config->fontSize = atoi(value);
         else if (strcmp(key, "font") == 0) snprintf(config->fontPath, sizeof(config->fontPath), "%s", value);
         else if (strcmp(key, "stats_file") == 0) snprintf(config->statsPath, sizeof(config->statsPath), "%s", value);
+        else if (strcmp(key, "snapshot_file") == 0) snprintf(config->snapshotPath, sizeof(config->snapshotPath), "%s", value);
         else if (strcmp(key, "key_left") == 0) config->keyLeft = parseKeyName(value, config->keyLeft);
         else if (strcmp(key, "key_right") == 0) config->keyRight = parseKeyName(value, config->keyRight);
         else if (strcmp(key, "key_down") == 0) config->keyDown = parseKeyName(value, config->keyDown);
@@ -251,6 +255,7 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "show_hud %d\n", config->showHud);
     fprintf(file, "show_ghost %d\n", config->showGhost);
     fprintf(file, "zen %d\n", config->zenMode);
+    fprintf(file, "resume_paused %d\n", config->resumePaused);
     fprintf(file, "block_size %d\n", config->blockSize);
     fprintf(file, "fall_delay %d\n", config->fallDelay);
     fprintf(file, "move_repeat_delay %d\n", config->moveRepeatDelay);
@@ -266,6 +271,7 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "font_size %d\n", config->fontSize);
     fprintf(file, "font %s\n", config->fontPath);
     fprintf(file, "stats_file %s\n", config->statsPath);
+    fprintf(file, "snapshot_file %s\n", config->snapshotPath);
     fprintf(file, "key_left %s\n", keyName(config->keyLeft));
     fprintf(file, "key_right %s\n", keyName(config->keyRight));
     fprintf(file, "key_down %s\n", keyName(config->keyDown));

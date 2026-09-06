@@ -10,6 +10,8 @@ static tretis_config_t testConfig() {
 
     snprintf(config.statsPath, sizeof(config.statsPath),
             "/tmp/tretis_game_test_%ld/stats", (long)getpid());
+    snprintf(config.snapshotPath, sizeof(config.snapshotPath),
+            "/tmp/tretis_game_test_%ld/snapshot", (long)getpid());
     config.fallDelay = 100000;
     config.speedup = false;
     config.showHud = false;
@@ -167,6 +169,61 @@ static void testUndoLimitAndUnavailableStates() {
     assert(game.undoCount == 0);
 }
 
+static void testGameSnapshotRoundTrip() {
+    game_t game;
+    game_t loaded;
+    tretis_config_t config = testConfig();
+
+    initGame(&game, config);
+    game.paused = true;
+    game.board[19][0] = CELL_CYAN;
+    game.board[18][9] = CELL_PURPLE;
+    game.piece = 4;
+    game.next[0] = 2;
+    game.next[1] = 6;
+    game.bagSize = 7;
+    game.bagIndex = 3;
+    game.heldPiece = 1;
+    game.hasHeldPiece = true;
+    game.swappedHeldThisTurn = true;
+    game.lines = 12;
+    game.tretises = 2;
+    game.score = 3400;
+    game.lockedPieces = 28;
+    game.elapsedTime = 123456;
+    game.row = 13;
+    game.col = 7;
+    game.rotation = 2;
+
+    assert(saveGameSnapshot(&game, config.snapshotPath));
+
+    initGame(&loaded, config);
+    assert(loadGameSnapshot(&loaded, config.snapshotPath));
+    assert(!loaded.paused);
+    assert(memcmp(loaded.board, game.board, sizeof(game.board)) == 0);
+    assert(loaded.piece == game.piece);
+    assert(loaded.next[0] == game.next[0]);
+    assert(loaded.next[1] == game.next[1]);
+    assert(loaded.bagSize == game.bagSize);
+    assert(loaded.bagIndex == game.bagIndex);
+    assert(loaded.heldPiece == game.heldPiece);
+    assert(loaded.hasHeldPiece == game.hasHeldPiece);
+    assert(loaded.swappedHeldThisTurn == game.swappedHeldThisTurn);
+    assert(loaded.lines == game.lines);
+    assert(loaded.tretises == game.tretises);
+    assert(loaded.score == game.score);
+    assert(loaded.lockedPieces == game.lockedPieces);
+    assert(loaded.elapsedTime == game.elapsedTime);
+    assert(loaded.row == 0);
+    assert(loaded.col == 3);
+    assert(loaded.rotation == 0);
+
+    config.resumePaused = true;
+    initGame(&loaded, config);
+    assert(loadGameSnapshot(&loaded, config.snapshotPath));
+    assert(loaded.paused);
+}
+
 int main() {
     testInitGameSetsPlayableDefaults();
     testElapsedTimeOnlyAccumulatesWhileActive();
@@ -175,5 +232,6 @@ int main() {
     testUndoRemovesLastLockAndKeepsCurrentTurn();
     testUndoClearsHeldMovementState();
     testUndoLimitAndUnavailableStates();
+    testGameSnapshotRoundTrip();
     return 0;
 }

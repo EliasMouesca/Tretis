@@ -34,6 +34,7 @@ static void testConfigSaveLoadRoundTrip() {
     saved.showHud = false;
     saved.showGhost = false;
     saved.zenMode = true;
+    saved.resumePaused = true;
     saved.blockSize = 23;
     saved.fallDelay = 321;
     saved.moveRepeatDelay = 91;
@@ -60,6 +61,7 @@ static void testConfigSaveLoadRoundTrip() {
     saved.keyUndoMod = SDL_KMOD_CTRL;
     snprintf(saved.fontPath, sizeof(saved.fontPath), "/tmp/font.ttf");
     snprintf(saved.statsPath, sizeof(saved.statsPath), "/tmp/stats");
+    snprintf(saved.snapshotPath, sizeof(saved.snapshotPath), "/tmp/snapshot");
 
     saveTretisConfig(&saved, path);
 
@@ -69,6 +71,7 @@ static void testConfigSaveLoadRoundTrip() {
     assert(loaded.showHud == saved.showHud);
     assert(loaded.showGhost == saved.showGhost);
     assert(loaded.zenMode == saved.zenMode);
+    assert(loaded.resumePaused == saved.resumePaused);
     assert(loaded.blockSize == saved.blockSize);
     assert(loaded.fallDelay == saved.fallDelay);
     assert(loaded.moveRepeatDelay == saved.moveRepeatDelay);
@@ -93,6 +96,7 @@ static void testConfigSaveLoadRoundTrip() {
     assert(loaded.keyPause == saved.keyPause);
     assert(loaded.keyUndo == saved.keyUndo);
     assert(loaded.keyUndoMod == saved.keyUndoMod);
+    assert(strcmp(loaded.snapshotPath, saved.snapshotPath) == 0);
 }
 
 int main() {
