@@ -7,14 +7,144 @@
 #include <string.h>
 #include <time.h>
 
+#include "../platform/platform.h"
+
 typedef struct {
     int col;
     int row;
 } block_t;
 
 static int elapsedSeconds(const game_t* game);
+
+static void copyGameToSnapshot(const game_t* game, game_snapshot_t* snapshot) {
+    memcpy(snapshot->board, game->board, sizeof(snapshot->board));
+    memcpy(snapshot->next, game->next, sizeof(snapshot->next));
+    memcpy(snapshot->bag, game->bag, sizeof(snapshot->bag));
+    memcpy(snapshot->history, game->history, sizeof(snapshot->history));
+    snapshot->piece = game->piece;
+    snapshot->bagSize = game->bagSize;
+    snapshot->bagIndex = game->bagIndex;
+    snapshot->generatedPieces = game->generatedPieces;
+    snapshot->heldPiece = game->heldPiece;
+    snapshot->rotation = game->rotation;
+    snapshot->row = game->row;
+    snapshot->col = game->col;
+    snapshot->hasHeldPiece = game->hasHeldPiece;
+    snapshot->swappedHeldThisTurn = game->swappedHeldThisTurn;
+    snapshot->lines = game->lines;
+    snapshot->tretises = game->tretises;
+    snapshot->score = game->score;
+    snapshot->lockedPieces = game->lockedPieces;
+    snapshot->startedAt = game->startedAt;
+    snapshot->lastFall = game->lastFall;
+    snapshot->nextMoveAt = game->nextMoveAt;
+    snapshot->nextSoftFallAt = game->nextSoftFallAt;
+    snapshot->lastTick = game->lastTick;
+    snapshot->elapsedTime = game->elapsedTime;
+    snapshot->groundedAt = game->groundedAt;
+    snapshot->lastLockDelayedAt = game->lastLockDelayedAt;
+    snapshot->stats = game->stats;
+    snapshot->config = game->config;
+    snapshot->running = game->running;
+    snapshot->paused = game->paused;
+    snapshot->gameOver = game->gameOver;
+    snapshot->statsSaved = game->statsSaved;
+    snapshot->movingLeft = game->movingLeft;
+    snapshot->movingRight = game->movingRight;
+    snapshot->softDropping = game->softDropping;
+    snapshot->grounded = game->grounded;
+}
+
+static void saveTurnSnapshot(game_t* game) {
+    copyGameToSnapshot(game, &game->turnStart);
+    game->hasTurnSnapshot = true;
+}
+
+static void saveUndoSnapshot(game_t* game) {
+    int limit = game->config.undoLimit;
+
+    if (limit <= 0)
+        return;
+    if (limit > MAX_UNDO_HISTORY)
+        limit = MAX_UNDO_HISTORY;
+
+    if (game->undoCount == limit) {
+        memmove(&game->undoHistory[0], &game->undoHistory[1],
+                (size_t)(limit - 1) * sizeof(game->undoHistory[0]));
+        game->undoCount--;
+    }
+
+    game->undoHistory[game->undoCount++] = game->turnStart;
+}
+
+static void undoLastLock(game_t* game) {
+    game_snapshot_t* snapshot;
+    int highScore;
+    uint64_t now;
+
+    if (game->paused || game->gameOver || game->undoCount == 0)
+        return;
+
+    snapshot = &game->undoHistory[--game->undoCount];
+    highScore = game->stats.highScore;
+
+    // Restore the complete state from before the locked piece's turn.
+    memcpy(game->board, snapshot->board, sizeof(game->board));
+    memcpy(game->next, snapshot->next, sizeof(game->next));
+    memcpy(game->bag, snapshot->bag, sizeof(game->bag));
+    memcpy(game->history, snapshot->history, sizeof(game->history));
+    game->piece = snapshot->piece;
+    game->bagSize = snapshot->bagSize;
+    game->bagIndex = snapshot->bagIndex;
+    game->generatedPieces = snapshot->generatedPieces;
+    game->heldPiece = snapshot->heldPiece;
+    game->rotation = snapshot->rotation;
+    game->row = snapshot->row;
+    game->col = snapshot->col;
+    game->hasHeldPiece = snapshot->hasHeldPiece;
+    game->swappedHeldThisTurn = snapshot->swappedHeldThisTurn;
+    game->lines = snapshot->lines;
+    game->tretises = snapshot->tretises;
+    game->score = snapshot->score;
+    game->lockedPieces = snapshot->lockedPieces;
+    game->startedAt = snapshot->startedAt;
+    game->lastFall = snapshot->lastFall;
+    game->nextMoveAt = snapshot->nextMoveAt;
+    game->nextSoftFallAt = snapshot->nextSoftFallAt;
+    game->lastTick = snapshot->lastTick;
+    game->elapsedTime = snapshot->elapsedTime;
+    game->groundedAt = snapshot->groundedAt;
+    game->lastLockDelayedAt = snapshot->lastLockDelayedAt;
+    game->stats = snapshot->stats;
+    game->config = snapshot->config;
+    game->running = snapshot->running;
+    game->paused = snapshot->paused;
+    game->gameOver = snapshot->gameOver;
+    game->statsSaved = snapshot->statsSaved;
+    game->grounded = snapshot->grounded;
+    game->turnStart = *snapshot;
+    game->hasTurnSnapshot = true;
+
+    if (game->stats.highScore < highScore)
+        game->stats.highScore = highScore;
+
+    // Do not revive held-key movement from the turn snapshot.
+    now = SDL_GetTicks();
+    game->movingLeft = false;
+    game->movingRight = false;
+    game->softDropping = false;
+    game->grounded = false;
+    game->groundedAt = now;
+    game->lastLockDelayedAt = now;
+    game->lastFall = now;
+    game->nextMoveAt = now + game->config.moveRepeatInitialDelay;
+    game->nextSoftFallAt = now + game->config.moveRepeatInitialDelay;
+}
 static void syncElapsedTime(game_t* game, uint64_t now);
 static void endGame(game_t* game);
+
+#define SNAPSHOT_MAGIC "TRETIS_SNAPSHOT"
+#define SNAPSHOT_VERSION 1
 
 static const block_t PIECES[7][4][4] = {
     {
@@ -225,6 +355,8 @@ static void lockPiece(game_t* game) {
     const block_t* shape = PIECES[game->piece][game->rotation];
     uint64_t now = SDL_GetTicks();
 
+    saveUndoSnapshot(game);
+
     for (int i = 0; i < 4; i++) {
         int r = game->row + shape[i].row;
         int c = game->col + shape[i].col;
@@ -245,6 +377,7 @@ static void lockPiece(game_t* game) {
     }
 
     game->grounded = false;
+    saveTurnSnapshot(game);
 }
 
 static void movePiece(game_t* game, int drow, int dcol) {
@@ -324,6 +457,7 @@ static void holdPiece(game_t* game) {
     }
 
     game->swappedHeldThisTurn = true;
+    saveTurnSnapshot(game);
 }
 
 void initGame(game_t* game, tretis_config_t config) {
@@ -348,9 +482,274 @@ void initGame(game_t* game, tretis_config_t config) {
     game->lastTick = game->startedAt;
     refillNextQueue(game);
     spawnPiece(game);
+    saveTurnSnapshot(game);
+}
+
+bool saveGameSnapshot(game_t* game, const char* path) {
+    char tempPath[512];
+    FILE* file;
+
+    if (game->gameOver) {
+        remove(path);
+        return true;
+    }
+
+    syncElapsedTime(game, SDL_GetTicks());
+    ensureParentDir(path);
+
+    if (snprintf(tempPath, sizeof(tempPath), "%s.tmp", path) >= (int)sizeof(tempPath))
+        return false;
+
+    file = fopen(tempPath, "w");
+    if (!file)
+        return false;
+
+    fprintf(file, "%s %d\n", SNAPSHOT_MAGIC, SNAPSHOT_VERSION);
+    for (int r = 0; r < BOARD_ROWS; r++) {
+        for (int c = 0; c < BOARD_COLS; c++)
+            fprintf(file, "%d%c", game->board[r][c], c == BOARD_COLS - 1 ? '\n' : ' ');
+    }
+
+    fprintf(file, "piece %d\n", game->piece);
+    fprintf(file, "next");
+    for (int i = 0; i < MAX_NEXT_PIECES; i++)
+        fprintf(file, " %d", game->next[i]);
+    fprintf(file, "\n");
+
+    fprintf(file, "bag");
+    for (int i = 0; i < 35; i++)
+        fprintf(file, " %d", game->bag[i]);
+    fprintf(file, "\n");
+
+    fprintf(file, "bag_size %d\n", game->bagSize);
+    fprintf(file, "bag_index %d\n", game->bagIndex);
+    fprintf(file, "history");
+    for (int i = 0; i < 4; i++)
+        fprintf(file, " %d", game->history[i]);
+    fprintf(file, "\n");
+    fprintf(file, "generated_pieces %d\n", game->generatedPieces);
+    fprintf(file, "held_piece %d\n", game->heldPiece);
+    fprintf(file, "has_held_piece %d\n", game->hasHeldPiece);
+    fprintf(file, "swapped_held_this_turn %d\n", game->swappedHeldThisTurn);
+    fprintf(file, "lines %d\n", game->lines);
+    fprintf(file, "tretises %d\n", game->tretises);
+    fprintf(file, "score %d\n", game->score);
+    fprintf(file, "locked_pieces %d\n", game->lockedPieces);
+    fprintf(file, "elapsed_time %llu\n", (unsigned long long)game->elapsedTime);
+
+    if (fclose(file) != 0) {
+        remove(tempPath);
+        return false;
+    }
+
+    if (rename(tempPath, path) != 0) {
+        remove(tempPath);
+        return false;
+    }
+
+    return true;
+}
+
+static bool readSnapshotHeader(FILE* file) {
+    char magic[sizeof(SNAPSHOT_MAGIC)];
+    int version;
+
+    if (fscanf(file, "%15s %d", magic, &version) != 2)
+        return false;
+
+    return strcmp(magic, SNAPSHOT_MAGIC) == 0 && version == SNAPSHOT_VERSION;
+}
+
+static bool readSnapshotInt(FILE* file, const char* expectedKey, int* value) {
+    char key[64];
+
+    if (fscanf(file, "%63s %d", key, value) != 2)
+        return false;
+
+    return strcmp(key, expectedKey) == 0;
+}
+
+static bool readSnapshotUInt64(FILE* file, const char* expectedKey,
+        uint64_t* value) {
+    char key[64];
+    unsigned long long parsed;
+
+    if (fscanf(file, "%63s %llu", key, &parsed) != 2)
+        return false;
+
+    if (strcmp(key, expectedKey) != 0)
+        return false;
+
+    *value = (uint64_t)parsed;
+    return true;
+}
+
+static bool readSnapshotIntList(FILE* file, const char* expectedKey,
+        int* values, int count) {
+    char key[64];
+
+    if (fscanf(file, "%63s", key) != 1 || strcmp(key, expectedKey) != 0)
+        return false;
+
+    for (int i = 0; i < count; i++)
+        if (fscanf(file, "%d", &values[i]) != 1)
+            return false;
+
+    return true;
+}
+
+static bool validSnapshot(const game_snapshot_t* snapshot) {
+    if (snapshot->piece < 0 || snapshot->piece >= 7)
+        return false;
+    if (snapshot->heldPiece < -1 || snapshot->heldPiece >= 7)
+        return false;
+    if (snapshot->bagSize < 0 || snapshot->bagSize > 35 ||
+            snapshot->bagIndex < 0 || snapshot->bagIndex > snapshot->bagSize)
+        return false;
+
+    for (int r = 0; r < BOARD_ROWS; r++)
+    for (int c = 0; c < BOARD_COLS; c++)
+        if (snapshot->board[r][c] < CELL_EMPTY || snapshot->board[r][c] > CELL_RED)
+            return false;
+
+    for (int i = 0; i < MAX_NEXT_PIECES; i++)
+        if (snapshot->next[i] < 0 || snapshot->next[i] >= 7)
+            return false;
+
+    for (int i = 0; i < 35; i++)
+        if (snapshot->bag[i] < 0 || snapshot->bag[i] >= 7)
+            return false;
+
+    for (int i = 0; i < 4; i++)
+        if (snapshot->history[i] < 0 || snapshot->history[i] >= 7)
+            return false;
+
+    return snapshot->generatedPieces >= 0 && snapshot->lines >= 0 &&
+        snapshot->tretises >= 0 && snapshot->score >= 0 &&
+        snapshot->lockedPieces >= 0;
+}
+
+bool loadGameSnapshot(game_t* game, const char* path) {
+    game_snapshot_t snapshot = {0};
+    FILE* file = fopen(path, "r");
+    uint64_t now;
+
+    if (!file)
+        return false;
+
+    if (!readSnapshotHeader(file))
+        goto invalid;
+
+    for (int r = 0; r < BOARD_ROWS; r++)
+    for (int c = 0; c < BOARD_COLS; c++) {
+        int value;
+        if (fscanf(file, "%d", &value) != 1)
+            goto invalid;
+        snapshot.board[r][c] = (cell_color_t)value;
+    }
+
+    if (!readSnapshotInt(file, "piece", &snapshot.piece) ||
+            !readSnapshotIntList(file, "next", snapshot.next, MAX_NEXT_PIECES) ||
+            !readSnapshotIntList(file, "bag", snapshot.bag, 35) ||
+            !readSnapshotInt(file, "bag_size", &snapshot.bagSize) ||
+            !readSnapshotInt(file, "bag_index", &snapshot.bagIndex) ||
+            !readSnapshotIntList(file, "history", snapshot.history, 4) ||
+            !readSnapshotInt(file, "generated_pieces", &snapshot.generatedPieces) ||
+            !readSnapshotInt(file, "held_piece", &snapshot.heldPiece))
+        goto invalid;
+
+    {
+        int value;
+        if (!readSnapshotInt(file, "has_held_piece", &value))
+            goto invalid;
+        snapshot.hasHeldPiece = value != 0;
+        if (!readSnapshotInt(file, "swapped_held_this_turn", &value))
+            goto invalid;
+        snapshot.swappedHeldThisTurn = value != 0;
+    }
+
+    if (!readSnapshotInt(file, "lines", &snapshot.lines) ||
+            !readSnapshotInt(file, "tretises", &snapshot.tretises) ||
+            !readSnapshotInt(file, "score", &snapshot.score) ||
+            !readSnapshotInt(file, "locked_pieces", &snapshot.lockedPieces))
+        goto invalid;
+
+    if (!readSnapshotUInt64(file, "elapsed_time", &snapshot.elapsedTime))
+        goto invalid;
+
+    fclose(file);
+
+    if (!validSnapshot(&snapshot))
+        return false;
+
+    memcpy(game->board, snapshot.board, sizeof(game->board));
+    memcpy(game->next, snapshot.next, sizeof(game->next));
+    memcpy(game->bag, snapshot.bag, sizeof(game->bag));
+    memcpy(game->history, snapshot.history, sizeof(game->history));
+    game->piece = snapshot.piece;
+    game->bagSize = snapshot.bagSize;
+    game->bagIndex = snapshot.bagIndex;
+    game->generatedPieces = snapshot.generatedPieces;
+    game->heldPiece = snapshot.heldPiece;
+    game->hasHeldPiece = snapshot.hasHeldPiece;
+    game->swappedHeldThisTurn = snapshot.swappedHeldThisTurn;
+    game->lines = snapshot.lines;
+    game->tretises = snapshot.tretises;
+    game->score = snapshot.score;
+    game->lockedPieces = snapshot.lockedPieces;
+    game->elapsedTime = snapshot.elapsedTime;
+
+    now = SDL_GetTicks();
+    game->rotation = 0;
+    game->row = 0;
+    game->col = 3;
+    game->startedAt = now;
+    game->lastFall = now;
+    game->nextMoveAt = now + game->config.moveRepeatInitialDelay;
+    game->nextSoftFallAt = now + game->config.moveRepeatInitialDelay;
+    game->lastTick = now;
+    game->groundedAt = now;
+    game->lastLockDelayedAt = now;
+    game->running = true;
+    game->paused = game->config.resumePaused;
+    game->gameOver = false;
+    game->statsSaved = false;
+    game->movingLeft = false;
+    game->movingRight = false;
+    game->softDropping = false;
+    game->grounded = false;
+    game->undoCount = 0;
+    saveTurnSnapshot(game);
+
+    return true;
+
+invalid:
+    fclose(file);
+    return false;
 }
 
 void handleGameKey(game_t* game, SDL_Keycode key) {
+    handleGameKeyWithMod(game, key, SDL_KMOD_NONE);
+}
+
+static SDL_Keymod normalizeShortcutModifiers(SDL_Keymod mod) {
+    SDL_Keymod normalized = SDL_KMOD_NONE;
+
+    if (mod & SDL_KMOD_CTRL) normalized |= SDL_KMOD_CTRL;
+    if (mod & SDL_KMOD_SHIFT) normalized |= SDL_KMOD_SHIFT;
+    if (mod & SDL_KMOD_ALT) normalized |= SDL_KMOD_ALT;
+    if (mod & SDL_KMOD_GUI) normalized |= SDL_KMOD_GUI;
+
+    return normalized;
+}
+
+static bool matchesUndoShortcut(const game_t* game, SDL_Keycode key, SDL_Keymod mod) {
+
+    return key == game->config.keyUndo &&
+        normalizeShortcutModifiers(mod) == normalizeShortcutModifiers(game->config.keyUndoMod);
+}
+
+void handleGameKeyWithMod(game_t* game, SDL_Keycode key, SDL_Keymod mod) {
     uint64_t now = SDL_GetTicks();
 
     if (key == game->config.keyQuit) {
@@ -375,6 +774,11 @@ void handleGameKey(game_t* game, SDL_Keycode key) {
     if (key == game->config.keyRestart) {
         finalizeGame(game);
         initGame(game, game->config);
+        return;
+    }
+
+    if (matchesUndoShortcut(game, key, mod)) {
+        undoLastLock(game);
         return;
     }
 

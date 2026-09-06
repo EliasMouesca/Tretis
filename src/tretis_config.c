@@ -19,6 +19,70 @@ SDL_Keycode parseKeyName(const char* value, SDL_Keycode fallback) {
     return fallback;
 }
 
+static SDL_Keymod parseShortcutModifier(const char* value) {
+    if (strcmp(value, "ctrl") == 0 || strcmp(value, "control") == 0)
+        return SDL_KMOD_CTRL;
+    if (strcmp(value, "shift") == 0)
+        return SDL_KMOD_SHIFT;
+    if (strcmp(value, "alt") == 0)
+        return SDL_KMOD_ALT;
+    if (strcmp(value, "gui") == 0 || strcmp(value, "meta") == 0 || strcmp(value, "cmd") == 0)
+        return SDL_KMOD_GUI;
+
+    return SDL_KMOD_NONE;
+}
+
+static bool isShortcutKeyName(const char* value) {
+    return strlen(value) == 1 ||
+        strcmp(value, "left") == 0 || strcmp(value, "right") == 0 ||
+        strcmp(value, "down") == 0 || strcmp(value, "up") == 0 ||
+        strcmp(value, "space") == 0 || strcmp(value, "escape") == 0 ||
+        strcmp(value, "esc") == 0;
+}
+
+SDL_Keycode parseShortcut(const char* value, SDL_Keycode fallbackKey,
+        SDL_Keymod fallbackMod, SDL_Keymod* mod) {
+    char buffer[256];
+    char* token;
+    SDL_Keymod parsedMod = SDL_KMOD_NONE;
+    bool hasModifier = false;
+
+    if (strlen(value) >= sizeof(buffer)) {
+        *mod = fallbackMod;
+        return fallbackKey;
+    }
+
+    strcpy(buffer, value);
+    token = strtok(buffer, "+");
+
+    while (token != NULL) {
+        SDL_Keymod shortcutMod = parseShortcutModifier(token);
+
+        if (shortcutMod != SDL_KMOD_NONE) {
+            parsedMod |= shortcutMod;
+            hasModifier = true;
+            token = strtok(NULL, "+");
+            continue;
+        }
+
+        if (strtok(NULL, "+") != NULL) {
+            *mod = fallbackMod;
+            return fallbackKey;
+        }
+
+        if (!isShortcutKeyName(token)) {
+            *mod = fallbackMod;
+            return fallbackKey;
+        }
+
+        *mod = hasModifier ? parsedMod : SDL_KMOD_NONE;
+        return parseKeyName(token, fallbackKey);
+    }
+
+    *mod = fallbackMod;
+    return fallbackKey;
+}
+
 const char* keyName(SDL_Keycode key) {
     switch (key) {
         case SDLK_LEFT: return "left";
@@ -39,6 +103,17 @@ const char* keyName(SDL_Keycode key) {
     return "?";
 }
 
+const char* shortcutName(SDL_Keycode key, SDL_Keymod mod) {
+    static char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%s%s%s%s%s",
+            mod & SDL_KMOD_CTRL ? "ctrl+" : "",
+            mod & SDL_KMOD_SHIFT ? "shift+" : "",
+            mod & SDL_KMOD_ALT ? "alt+" : "",
+            mod & SDL_KMOD_GUI ? "gui+" : "",
+            keyName(key));
+    return buffer;
+}
+
 tretis_config_t defaultTretisConfig() {
     tretis_config_t config = {
         .rows = DEFAULT_BOARD_ROWS,
@@ -46,6 +121,7 @@ tretis_config_t defaultTretisConfig() {
         .blockSize = DEFAULT_BLOCK_SIZE,
         .sidebarWidth = DEFAULT_SIDEBAR_WIDTH,
         .nextPieces = DEFAULT_NEXT_PIECES,
+        .undoLimit = DEFAULT_UNDO_LIMIT,
         .fallDelay = 500,
         .moveRepeatDelay = 80,
         .moveRepeatInitialDelay = 180,
@@ -61,6 +137,7 @@ tretis_config_t defaultTretisConfig() {
         .showHud = true,
         .showGhost = true,
         .zenMode = false,
+        .resumePaused = false,
         .keyLeft = SDLK_LEFT,
         .keyRight = SDLK_RIGHT,
         .keyDown = SDLK_DOWN,
@@ -71,11 +148,14 @@ tretis_config_t defaultTretisConfig() {
         .keyHold = SDLK_E,
         .keyRestart = SDLK_R,
         .keyQuit = SDLK_Q,
-        .keyPause = SDLK_P
+        .keyPause = SDLK_P,
+        .keyUndo = SDLK_Z,
+        .keyUndoMod = SDL_KMOD_CTRL
     };
 
-    // sets default stats and config file path in config.{statsPath; configPath}
+    // Sets default runtime paths in config.{statsPath; snapshotPath; configPath}.
     makeDefaultRuntimePath(config.statsPath, sizeof(config.statsPath), "stats");
+    makeDefaultRuntimePath(config.snapshotPath, sizeof(config.snapshotPath), "snapshot");
     makeDefaultRuntimePath(config.configPath, sizeof(config.configPath), "config");
     snprintf(config.fontPath, sizeof(config.fontPath), "./fonts/SpaceMono-Regular.ttf");
 
@@ -128,6 +208,7 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         if (strcmp(key, "show_hud") == 0) config->showHud = atoi(value) != 0;
         else if (strcmp(key, "show_ghost") == 0) config->showGhost = atoi(value) != 0;
         else if (strcmp(key, "zen") == 0) config->zenMode = atoi(value) != 0;
+        else if (strcmp(key, "resume_paused") == 0) config->resumePaused = atoi(value) != 0;
         else if (strcmp(key, "block_size") == 0) config->blockSize = atoi(value);
         else if (strcmp(key, "fall_delay") == 0) config->fallDelay = atoi(value);
         else if (strcmp(key, "move_repeat_delay") == 0) config->moveRepeatDelay = atoi(value);
@@ -138,10 +219,12 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         else if (strcmp(key, "speedup_step") == 0) config->speedupStep = atoi(value);
         else if (strcmp(key, "min_fall_delay") == 0) config->minFallDelay = atoi(value);
         else if (strcmp(key, "next_pieces") == 0) config->nextPieces = atoi(value);
+        else if (strcmp(key, "undo_limit") == 0) config->undoLimit = atoi(value);
         else if (strcmp(key, "sidebar_width") == 0) config->sidebarWidth = atoi(value);
         else if (strcmp(key, "font_size") == 0) config->fontSize = atoi(value);
         else if (strcmp(key, "font") == 0) snprintf(config->fontPath, sizeof(config->fontPath), "%s", value);
         else if (strcmp(key, "stats_file") == 0) snprintf(config->statsPath, sizeof(config->statsPath), "%s", value);
+        else if (strcmp(key, "snapshot_file") == 0) snprintf(config->snapshotPath, sizeof(config->snapshotPath), "%s", value);
         else if (strcmp(key, "key_left") == 0) config->keyLeft = parseKeyName(value, config->keyLeft);
         else if (strcmp(key, "key_right") == 0) config->keyRight = parseKeyName(value, config->keyRight);
         else if (strcmp(key, "key_down") == 0) config->keyDown = parseKeyName(value, config->keyDown);
@@ -153,6 +236,8 @@ void loadTretisConfig(tretis_config_t* config, const char* path) {
         else if (strcmp(key, "key_restart") == 0) config->keyRestart = parseKeyName(value, config->keyRestart);
         else if (strcmp(key, "key_quit") == 0) config->keyQuit = parseKeyName(value, config->keyQuit);
         else if (strcmp(key, "key_pause") == 0) config->keyPause = parseKeyName(value, config->keyPause);
+        else if (strcmp(key, "key_undo") == 0)
+            config->keyUndo = parseShortcut(value, config->keyUndo, config->keyUndoMod, &config->keyUndoMod);
         else if (strcmp(key, "lock_delay") == 0) config->lockDelay = atoi(value);
         else if (strcmp(key, "max_lock_delay") == 0) config->maxLockDelay = atoi(value);
     }
@@ -170,6 +255,7 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "show_hud %d\n", config->showHud);
     fprintf(file, "show_ghost %d\n", config->showGhost);
     fprintf(file, "zen %d\n", config->zenMode);
+    fprintf(file, "resume_paused %d\n", config->resumePaused);
     fprintf(file, "block_size %d\n", config->blockSize);
     fprintf(file, "fall_delay %d\n", config->fallDelay);
     fprintf(file, "move_repeat_delay %d\n", config->moveRepeatDelay);
@@ -180,10 +266,12 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "speedup_step %d\n", config->speedupStep);
     fprintf(file, "min_fall_delay %d\n", config->minFallDelay);
     fprintf(file, "next_pieces %d\n", config->nextPieces);
+    fprintf(file, "undo_limit %d\n", config->undoLimit);
     fprintf(file, "sidebar_width %d\n", config->sidebarWidth);
     fprintf(file, "font_size %d\n", config->fontSize);
     fprintf(file, "font %s\n", config->fontPath);
     fprintf(file, "stats_file %s\n", config->statsPath);
+    fprintf(file, "snapshot_file %s\n", config->snapshotPath);
     fprintf(file, "key_left %s\n", keyName(config->keyLeft));
     fprintf(file, "key_right %s\n", keyName(config->keyRight));
     fprintf(file, "key_down %s\n", keyName(config->keyDown));
@@ -195,6 +283,7 @@ void saveTretisConfig(const tretis_config_t* config, const char* path) {
     fprintf(file, "key_restart %s\n", keyName(config->keyRestart));
     fprintf(file, "key_quit %s\n", keyName(config->keyQuit));
     fprintf(file, "key_pause %s\n", keyName(config->keyPause));
+    fprintf(file, "key_undo %s\n", shortcutName(config->keyUndo, config->keyUndoMod));
     fprintf(file, "lock_delay %d\n", config->lockDelay);
     fprintf(file, "max_lock_delay %d\n", config->maxLockDelay);
     fclose(file);
