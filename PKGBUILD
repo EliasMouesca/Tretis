@@ -12,6 +12,7 @@ sha256sums=()
 
 build() {
     cd "$startdir"
+    make clean
     make
 }
 
