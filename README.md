@@ -23,6 +23,12 @@ stats and preferences are stored under:
 $HOME/.config/tretis/
 ```
 
+The latest in-progress game is saved as `snapshot` in the same directory and
+loaded automatically on the next launch. By default it resumes immediately;
+set `resume_paused 1` in the configuration to launch restored games paused. Its
+path can be changed with the `snapshot_file` configuration setting or
+`--snapshot-file`.
+
 ## Build Manually
 
 Install SDL3 and SDL3_ttf development packages, then run:
@@ -70,6 +76,7 @@ Key bindings can also be edited in `$HOME/.config/tretis/config`.
 - `--stats`: print saved stats and exit.
 - `--stats-file PATH`: custom stats file path.
 - `--highscore-file PATH`: alias for `--stats-file`.
+- `--snapshot-file PATH`: custom saved-game snapshot path.
 - `--font PATH`: custom TTF font file.
 - `--font-size N`: HUD font size in pixels.
 

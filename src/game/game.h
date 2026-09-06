@@ -50,6 +50,8 @@ typedef struct {
 } game_t;
 
 void initGame(game_t* game, tretis_config_t config);
+bool saveGameSnapshot(game_t* game, const char* path);
+bool loadGameSnapshot(game_t* game, const char* path);
 void handleGameKey(game_t* game, SDL_Keycode key);
 void releaseGameKey(game_t* game, SDL_Keycode key);
 void updateGame(game_t* game, uint64_t now);
