@@ -11,7 +11,6 @@
 #define DEFAULT_NEXT_PIECES 4
 #define MAX_NEXT_PIECES 6
 #define STATS_PATH_MAX 256
-#define SNAPSHOT_PATH_MAX 256
 #define FONT_PATH_MAX 256
 #define CONFIG_PATH_MAX 256
 
@@ -43,7 +42,6 @@ typedef struct {
     bool showHud;
     bool showGhost;
     bool zenMode;
-    bool resumePaused;
     SDL_Keycode keyLeft;
     SDL_Keycode keyRight;
     SDL_Keycode keyDown;
@@ -56,7 +54,6 @@ typedef struct {
     SDL_Keycode keyQuit;
     SDL_Keycode keyPause;
     char statsPath[STATS_PATH_MAX];
-    char snapshotPath[SNAPSHOT_PATH_MAX];
     char configPath[CONFIG_PATH_MAX];
     char fontPath[FONT_PATH_MAX];
 } tretis_config_t;
