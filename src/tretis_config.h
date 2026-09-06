@@ -13,6 +13,7 @@
 #define MAX_UNDO_HISTORY 64
 #define DEFAULT_UNDO_LIMIT 5
 #define STATS_PATH_MAX 256
+#define SNAPSHOT_PATH_MAX 256
 #define FONT_PATH_MAX 256
 #define CONFIG_PATH_MAX 256
 
@@ -45,6 +46,7 @@ typedef struct {
     bool showHud;
     bool showGhost;
     bool zenMode;
+    bool resumePaused;
     SDL_Keycode keyLeft;
     SDL_Keycode keyRight;
     SDL_Keycode keyDown;
@@ -59,6 +61,7 @@ typedef struct {
     SDL_Keycode keyUndo;
     SDL_Keymod keyUndoMod;
     char statsPath[STATS_PATH_MAX];
+    char snapshotPath[SNAPSHOT_PATH_MAX];
     char configPath[CONFIG_PATH_MAX];
     char fontPath[FONT_PATH_MAX];
 } tretis_config_t;
