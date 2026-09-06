@@ -81,12 +81,16 @@ static void printHelp(const char* program) {
     printf("  --stats                Print saved stats and exit\n");
     printf("  --stats-file PATH      File used to load and save stats (default $HOME/.config/tretis/stats)\n");
     printf("  --highscore-file PATH  Alias for --stats-file\n");
+    printf("  --snapshot-file PATH   File used to save and load the current game (default $HOME/.config/tretis/snapshot)\n");
     printf("  --font PATH            TTF font file for HUD text\n");
     printf("  --font-size N          HUD font size in pixels (default 14)\n");
     printf("\n");
     printf("Preferences are loaded from and saved to $HOME/.config/tretis/config.\n");
+    printf("Set resume_paused 1 there to start restored snapshots paused.\n");
     printf("Key bindings can be edited there with key_left, key_right, key_down,\n");
     printf("key_rotate, key_drop, key_hold, key_restart, key_quit, and key_pause.\n");
+    printf("key_undo accepts shortcuts such as ctrl+z.\n");
+    printf("Undo history depth can be configured with undo_limit.\n");
     printf("Timing can be tuned with move_repeat_delay and move_repeat_initial_delay.\n");
     printf("\n");
     printf("Controls:\n");
@@ -151,6 +155,10 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
             const char* path = readStringArg(argc, argv, &i, config.statsPath);
             strncpy(config.statsPath, path, sizeof(config.statsPath) - 1);
             config.statsPath[sizeof(config.statsPath) - 1] = '\0';
+        } else if (strcmp(argv[i], "--snapshot-file") == 0) {
+            const char* path = readStringArg(argc, argv, &i, config.snapshotPath);
+            strncpy(config.snapshotPath, path, sizeof(config.snapshotPath) - 1);
+            config.snapshotPath[sizeof(config.snapshotPath) - 1] = '\0';
         } else if (strcmp(argv[i], "--font") == 0) {
             const char* path = readStringArg(argc, argv, &i, config.fontPath);
             strncpy(config.fontPath, path, sizeof(config.fontPath) - 1);
@@ -166,6 +174,10 @@ static tretis_config_t parseConfig(int argc, char* argv[], bool* printStats) {
         config.nextPieces = 0;
     if (config.nextPieces > MAX_NEXT_PIECES)
         config.nextPieces = MAX_NEXT_PIECES;
+    if (config.undoLimit < 0)
+        config.undoLimit = 0;
+    if (config.undoLimit > MAX_UNDO_HISTORY)
+        config.undoLimit = MAX_UNDO_HISTORY;
     if (config.blockSize < 8)
         config.blockSize = 8;
     if (config.fallDelay < 50)
@@ -201,6 +213,7 @@ int main(int argc, char* argv[]) {
     game_t game;
 
     initGame(&game, config);
+    loadGameSnapshot(&game, config.snapshotPath);
 
     while (isGameRunning(&game)) {
         SDL_Event event;
@@ -210,7 +223,7 @@ int main(int argc, char* argv[]) {
                 handleGameKey(&game, SDLK_Q);
 
             if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
-                handleGameKey(&game, event.key.key);
+                handleGameKeyWithMod(&game, event.key.key, event.key.mod);
 
             if (event.type == SDL_EVENT_KEY_UP)
                 releaseGameKey(&game, event.key.key);
@@ -226,6 +239,7 @@ int main(int argc, char* argv[]) {
     }
 
     finalizeGame(&game);
+    saveGameSnapshot(&game, config.snapshotPath);
     saveTretisConfig(&config, config.configPath);
     destroyRenderContext(&rc);
 
